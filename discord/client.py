@@ -453,8 +453,9 @@ class Client:
         See :func:`~discord.on_interaction` for more information.
         """
         print(interaction.type)
-        if interaction.type is InteractionType.application_command:
+        if interaction.type in (InteractionType.application_command, InteractionType.application_command_autocomplete):
             await self._application_command_store.dispatch(self, interaction)
+        
 
     # hooks
 

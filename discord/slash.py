@@ -5,14 +5,17 @@ import json
 import traceback
 from typing import List, Optional, TypeVar, Dict, Any, TYPE_CHECKING, Union, Type, Literal, Tuple, Iterable
 
+from discord.types.interactions import InteractionResponseType, InteractionType
+
 from .utils import MISSING
-from .enums import ApplicationCommandType
+from .enums import ApplicationCommandType, InteractionType, InteractionResponseType
 from .interactions import Interaction
 from .member import Member
 from .message import Message
 from .user import User
 from .channel import PartialSlashChannel
 from .role import Role
+
 
 if TYPE_CHECKING:
     from .client import Client
@@ -43,7 +46,12 @@ def _option_to_dict(option: _OptionData) -> dict:
     origin = getattr(option.type, "__origin__", None)
     arg = option.type
 
-    payload = {"name": option.name, "description": option.description or "none provided", "required": True}
+    payload = {
+        "name": option.name,
+        "description": option.description or "none provided",
+        "required": True,
+        "autocomplete": option.autocomplete,
+    }
 
     if origin is Union:
         if arg.__args__[1] is None:  # type: ignore
@@ -105,15 +113,16 @@ T = TypeVar("T")
 
 
 class Option:
-    __slots__ = ("description", "default")
+    __slots__ = ("description", "default", "autocomplete")
 
-    def __init__(self, description: str = MISSING, *, default: T = MISSING) -> None:
+    def __init__(self, description: str = MISSING, *, default: T = MISSING, autocomplete: bool = False) -> None:
         self.description = description
         self.default = default
+        self.autocomplete = autocomplete
 
 
 class _OptionData:
-    __slots__ = ("name", "type", "description", "default")
+    __slots__ = ("name", "type", "description", "default", "autocomplete")
 
     def __init__(
         self,
@@ -121,14 +130,16 @@ class _OptionData:
         type_: Type[Any],
         description: Optional[str] = MISSING,
         default: T = MISSING,
+        autocomplete: bool = False,
     ) -> None:
         self.name = name
         self.type = type_
         self.description = description
         self.default = default
+        self.autocomplete = autocomplete
 
     def __repr__(self):
-        return f"<OptionData name={self.name} type={self.type} default={self.default}>"
+        return f"<OptionData name={self.name} type={self.type} default={self.default} autocomplete={self.autocomplete}>"
 
 
 class CommandMeta(type):
@@ -171,14 +182,16 @@ class CommandMeta(type):
         for k, v in ann.items():
             attr = attrs.get(k, MISSING)
             default = description = MISSING
+            autocomplete = False
             if isinstance(attr, Option):
                 default = attr.default
                 description = attr.description
+                autocomplete = attr.autocomplete
 
             elif attr is not MISSING:
                 default = attr
 
-            arguments.append(_OptionData(k, v, description, default))
+            arguments.append(_OptionData(k, v, description, default, autocomplete))
 
         if type is ApplicationCommandType.user_command and (len(arguments) != 1 or arguments[0].name != "target"):
             print(arguments)
@@ -293,6 +306,9 @@ class Command(metaclass=CommandMeta):
     async def callback(self) -> None:
         ...
 
+    async def autocomplete_callback(self, option_name, value:str) -> List[Dict[str,str]]:
+        ...
+
     async def error(self, exception: Exception) -> None:
         traceback.print_exception(type(exception), exception, exception.__traceback__)
 
@@ -392,6 +408,24 @@ class CommandState:
         inst = cls()
         inst.client = client
         inst.interaction = interaction
-        inst._handle_arguments(self.state)
+        if interaction.type is InteractionType.application_command:
+            # TODO: Handle arguments in both cases rather than in only application_command
+            inst._handle_arguments(self.state)
 
-        await inst.callback()
+            await inst.callback()
+
+        else:  # Type is autocomplete
+
+            # An autocomplete interaction will always have at least one focused option
+            focused_option = [x for x in interaction.data["options"] if x.get("focused")][0]
+
+            choices_result: List[Dict[str, str]] = await inst.autocomplete_callback(
+                focused_option["name"], focused_option["value"]
+            )
+
+            await client.http.create_interaction_response(
+                interaction.id,
+                interaction.token,
+                type=InteractionResponseType.application_command_autocomplete_result.value,
+                data={"choices": choices_result},
+            )
