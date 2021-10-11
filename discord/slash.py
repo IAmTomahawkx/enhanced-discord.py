@@ -54,7 +54,7 @@ def _option_to_dict(option: _OptionData) -> dict:
     }
 
     if origin is Union:
-        if arg.__args__[1] is None:  # type: ignore
+        if arg.__args__[1] is type(None):  # type: ignore
             payload["required"] = False
             arg = arg.__args__[0]  # type: ignore
 
@@ -277,9 +277,11 @@ class Command(metaclass=CommandMeta):
     def _handle_arguments(self, state: ConnectionState):
         intr: ApplicationCommandInteractionData = self.interaction.data
 
-        parsed = {}
+        # This is to use the default value provided in the Option
+        parsed = {x.name: x.default for x in self._arguments_}
 
-        if self._type_ is ApplicationCommandType.slash_command:
+        # Check if command had any options
+        if self._type_ is ApplicationCommandType.slash_command and "options" in intr:
             for option in intr["options"]:
                 if option["type"] in {3, 4, 5, 10}:
                     parsed[option["name"]] = option["value"]
@@ -306,7 +308,7 @@ class Command(metaclass=CommandMeta):
     async def callback(self) -> None:
         ...
 
-    async def autocomplete_callback(self, option_name, value:str) -> List[Dict[str,str]]:
+    async def autocomplete_callback(self, option_name: str, value) -> List[Dict[str, str]]:
         ...
 
     async def error(self, exception: Exception) -> None:
