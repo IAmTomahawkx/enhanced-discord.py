@@ -59,11 +59,12 @@ def _option_to_dict(option: _OptionData) -> dict:
         if arg.__args__[1] is NoneType:  # type: ignore
             payload["required"] = False
             arg = arg.__args__[0]  # type: ignore
-
+            origin = getattr(arg, "__origin__", None)
+            
         if arg == Union[Member, Role]:
             payload["type"] = 9
 
-    elif origin is Literal:
+    if origin is Literal:
         values = arg.__args__  # type: ignore
         python_type_ = type(values[0])
         if (
