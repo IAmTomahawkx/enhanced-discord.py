@@ -1737,8 +1737,8 @@ class Client:
     async def upload_global_application_commands(self) -> None:
         await self._application_command_store.upload_global_commands()
 
-    async def upload_guild_application_commands(self, guild: Guild = None) -> None:
-        await self._application_command_store.upload_guild_commands(guild)
+    async def upload_guild_application_commands(self, ext_commands: Dict[int | None, Any], guild: Guild = None) -> None:
+        await self._application_command_store.upload_guild_commands(ext_commands, guild)
 
     async def upload_guild_application_command_permissions(self, guild: Guild) -> None:
         await self._application_command_store.upload_guild_command_permissions(guild.id)

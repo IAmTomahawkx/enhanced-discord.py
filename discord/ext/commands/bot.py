@@ -301,32 +301,9 @@ class BotBase(GroupMixin):
             else:
                 for guild in guilds:
                     commands[guild].append(payload)
-
-        http: HTTPClient = self.http  # type: ignore
-        global_commands = commands.pop(None, None)
-        application_id = self.application_id or (await self.application_info()).id  # type: ignore
-        if global_commands is not None:
-            if self.slash_command_guilds is None:
-                await http.bulk_upsert_global_commands(
-                    payload=global_commands,
-                    application_id=application_id,
-                )
-            else:
-                for guild in self.slash_command_guilds:
-                    await http.bulk_upsert_guild_commands(
-                        guild_id=guild,
-                        payload=global_commands,
-                        application_id=application_id,
-                    )
-
-        for guild, guild_commands in commands.items():
-            assert guild is not None
-            await http.bulk_upsert_guild_commands(
-                guild_id=guild,
-                payload=guild_commands,
-                application_id=application_id,
-            )
-
+        
+        await self.upload_guild_application_commands(commands) # type: ignore
+        
     @discord.utils.copy_doc(discord.Client.close)
     async def close(self) -> None:
         for extension in tuple(self.__extensions):
@@ -1337,8 +1314,11 @@ class BotBase(GroupMixin):
         await self.process_commands(message)
 
     async def on_interaction(self, interaction: discord.Interaction):
-        await discord.Client.on_interaction(self, interaction) # type: ignore
-        await self.process_slash_commands(interaction)
+        try:
+            await self.process_slash_commands(interaction)
+        except errors.CommandNotFound:
+            await discord.Client.on_interaction(self, interaction)  # type: ignore
+
 
 
 class Bot(BotBase, discord.Client):

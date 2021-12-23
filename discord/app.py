@@ -433,11 +433,17 @@ class CommandState:
                 self.command_store[int(x["id"])] = t = store[(x["name"], x["type"])]
                 t._id_ = int(x["id"])
 
-    async def upload_guild_commands(self, guild: Optional[Snowflake] = None) -> None:
+    async def upload_guild_commands(
+        self,
+        ext_commands: Dict[int | None, Any],
+        guild: Optional[Snowflake] = None,
+    ) -> None:
         """
         This function will upload all *guild* slash commands to discord, overwriting the previous ones.
         Note: this can be fairly slow, as it involves an api call for every guild you have set slash commands for
         """
+        # ext_commands is a dict of guild_id -> command payloads
+
         if not self._application_id:
             appinfo = await self.http.application_info()
             self._application_id = appinfo["id"]
@@ -458,11 +464,15 @@ class CommandState:
                 continue  # global commands
 
             store = {(x._name_, x.type().value): x for x in commands}  # type: ignore
-            t = [x.to_dict() for x in commands if not x._parent_]
+            t = [x.to_dict() for x in commands if not x._parent_]  # All tom's commands for a specific guild
+            if guild in ext_commands:
+                t.extend(ext_commands[guild])  # All ext commands for a specific guild
             payload: List[ApplicationCommand] = await self.http.bulk_upsert_guild_commands(
                 self._application_id, guild, t
             )
             for x in payload:
+                if (x["name"], x["type"]) not in store:
+                    continue  # This is an ext command
                 self.command_store[int(x["id"])] = t = store[(x["name"], x["type"])]
                 t._id_ = int(x["id"])
 
