@@ -39,6 +39,16 @@ If you're having trouble with something, these resources might help.
 - If you're looking for something specific, try the :ref:`index <genindex>` or :ref:`searching <search>`.
 - Report bugs in the :resource:`issue tracker <issues>`.
 
+Application Commands Framework
+-------------------------------
+
+This framework is used to create application commands (Slash commands and context menu commands)
+
+.. toctree::
+    :maxdepth: 1
+  
+    app/index.rst
+
 Extensions
 ------------
 

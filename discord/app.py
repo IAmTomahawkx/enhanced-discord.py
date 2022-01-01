@@ -130,11 +130,23 @@ AutoCompleteResponseT = TypeVar("AutoCompleteResponseT", bound="AutoCompleteResp
 
 
 class AutoCompleteResponse(dict):  # TODO: docs
+    """Represents a response to an autocomplete request.
+    
+    Used to show list of options to the user.
+    """
     def add_option(self, name: str, value: Union[str, int]) -> AutoCompleteResponseT:
+        """Add an option to the response."""
         self[name] = value
         return self
 
     def remove_option(self, name: str) -> AutoCompleteResponseT:
+        """Remove an option from the response.
+        
+        Raises
+        ------
+        KeyError
+            The `name` was not found in the response.
+        """
         del self[name]
         return self
 
@@ -143,6 +155,22 @@ class AutoCompleteResponse(dict):  # TODO: docs
 
 
 class Option:
+    """Represents a command option.
+    
+    Attributes
+    ----------
+    autocomplete
+        Whether or not the option should be autocompleted.
+    default
+        The default value for the option if the option is optional.
+    description
+        The description of the option.
+    max
+        The maximum value for the option. Inclusive. Only valid for integers and floats.
+    min
+        The minimum value for the option. Inclusive. Only valid for integers and floats.
+
+    """
     __slots__ = ("autocomplete", "default", "description", "max", "min")
 
     def __init__(
@@ -332,20 +360,44 @@ class Command(metaclass=CommandMeta):
         return payload
 
     async def callback(self) -> None:
+        """This method is called when the command is used."""
         ...
 
     async def autocomplete(
         self, options: Dict[str, Union[int, float, str]], focused: str
     ) -> List[ApplicationCommandOptionChoice]:
+        """This method is called when an autocomplete is triggered.
+        
+        Parameters
+        ----------
+        options : Dict[str, Union[int, float, str]]
+            The options that have been filled by the user so far.
+        focused : str
+            The name of the option that is currently focused.
+
+        Returns
+        -------
+        :class:`AutoCompleteResponse`
+            The response to the autocomplete request.
+        """
         ...
 
     async def check(self) -> bool:
+        """This method is called before the callback is called."""
         return True
 
     async def pre_check(self) -> bool:
         return True
 
     async def error(self, exception: Exception) -> None:
+        """This method is called whenever an exception occurs in :meth:`.autocomplete` or :meth:`.callback`
+        
+        Parameters
+        ----------
+
+        exception : Exception
+            The exception that was thrown.
+        """
         traceback.print_exception(type(exception), exception, exception.__traceback__)
 
 

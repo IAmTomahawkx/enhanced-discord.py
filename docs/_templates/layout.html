@@ -89,6 +89,7 @@
         {%- for ext, p in discord_extensions %}
         <option value="{{ pathto(p + '/index')|e }}" {% if pagename is prefixedwith p %}selected{% endif %}>{{ ext }}</option>
         {%- endfor %}
+        <option value="{{pathto(master_doc.replace('index','') + '/app/index')}}">discord.app</option>
       </select>
       <form role="search" class="search" action="{{ pathto('search') }}" method="get">
         <div class="search-wrapper">
