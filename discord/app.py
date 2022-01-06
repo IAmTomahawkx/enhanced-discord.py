@@ -424,7 +424,7 @@ class CommandState:
             self._application_id = appinfo["id"]
 
         global_commands = self.pre_registration.get(None, [])
-        
+
         if global_commands:
             store = {(x._name_, x.type().value): x for x in global_commands}  # type: ignore
             data = [x.to_dict() for x in global_commands if not x._parent_]

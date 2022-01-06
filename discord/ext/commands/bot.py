@@ -301,10 +301,10 @@ class BotBase(GroupMixin):
             else:
                 for guild in guilds:
                     commands[guild].append(payload)
-        
-        await self.upload_guild_application_commands(commands) # type: ignore
-        await self.upload_global_application_commands(commands) # type: ignore
-        
+
+        await self.upload_guild_application_commands(commands)  # type: ignore
+        await self.upload_global_application_commands(commands)  # type: ignore
+
     @discord.utils.copy_doc(discord.Client.close)
     async def close(self) -> None:
         for extension in tuple(self.__extensions):
@@ -1319,7 +1319,6 @@ class BotBase(GroupMixin):
             await self.process_slash_commands(interaction)
         except errors.CommandNotFound:
             await discord.Client.on_interaction(self, interaction)  # type: ignore
-
 
 
 class Bot(BotBase, discord.Client):
