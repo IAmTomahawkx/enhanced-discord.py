@@ -303,6 +303,7 @@ class BotBase(GroupMixin):
                     commands[guild].append(payload)
         
         await self.upload_guild_application_commands(commands) # type: ignore
+        await self.upload_global_application_commands(commands) # type: ignore
         
     @discord.utils.copy_doc(discord.Client.close)
     async def close(self) -> None:

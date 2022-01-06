@@ -415,7 +415,7 @@ class CommandState:
         self.command_store: Dict[int, Type[Command]] = {}  # not using Snowflake to keep one type
         self.pre_registration: Dict[Optional[int], List[Type[Command]]] = {}  # the None key will hold global commands
 
-    async def upload_global_commands(self) -> None:
+    async def upload_global_commands(self, ext_commands: Dict[int | None, Any]) -> None:
         """
         This function will upload all *global* Application Commands to discord, overwriting previous ones.
         """
@@ -424,12 +424,18 @@ class CommandState:
             self._application_id = appinfo["id"]
 
         global_commands = self.pre_registration.get(None, [])
+        
         if global_commands:
             store = {(x._name_, x.type().value): x for x in global_commands}  # type: ignore
+            data = [x.to_dict() for x in global_commands if not x._parent_]
+            if None in ext_commands:
+                data.extend(ext_commands[None])  # Add global ext commands to global app commands
             payload: List[ApplicationCommand] = await self.http.bulk_upsert_global_commands(
-                self._application_id, [x.to_dict() for x in global_commands if not x._parent_]  # type: ignore
+                self._application_id, data  # type: ignore
             )
             for x in payload:  # type: ApplicationCommand
+                if (x["name"], x["type"]) not in store:
+                    continue  # This is an ext command
                 self.command_store[int(x["id"])] = t = store[(x["name"], x["type"])]
                 t._id_ = int(x["id"])
 

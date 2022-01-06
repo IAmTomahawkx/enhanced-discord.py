@@ -1734,8 +1734,8 @@ class Client:
         """
         return self._connection.persistent_views
 
-    async def upload_global_application_commands(self) -> None:
-        await self._application_command_store.upload_global_commands()
+    async def upload_global_application_commands(self, ext_commands: Dict[int | None, Any]) -> None:
+        await self._application_command_store.upload_global_commands(ext_commands)
 
     async def upload_guild_application_commands(self, ext_commands: Dict[int | None, Any], guild: Guild = None) -> None:
         await self._application_command_store.upload_guild_commands(ext_commands, guild)
