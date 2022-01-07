@@ -1,7 +1,6 @@
 import discord
 from discord import app
 
-
 client = discord.Client(intents=discord.Intents.none())
 
 # Set name=value to set the name of the command. This is optional. If not provided, the name of the class will be used.
