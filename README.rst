@@ -17,7 +17,7 @@ The Future of enhanced-discord.py
 --------------------------
 
 Enhanced discord.py is a fork of Rapptz's discord.py, that went unmaintained (`gist <https://gist.github.com/Rapptz/4a2f62751b9600a31a0d3c78100287f1>`_)
-An overview of added features is available on the `custom features page <https://enhanced-dpy.readthedocs.io/en/latest/index.html#custom-features>`_.
+An overview of features added by enhanced-discord.py is available on the `changelog <https://enhanced-dpy.readthedocs.io/en/latest/whats_new.html#v2-0-0-moving-to-enhanced-discord-py>`_.
 
 Key Features
 -------------

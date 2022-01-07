@@ -48,6 +48,7 @@ import weakref
 
 import aiohttp
 
+
 from .errors import (
     HTTPException,
     Forbidden,
@@ -272,9 +273,10 @@ class HTTPClient:
                         f.reset(seek=tries)
 
                 if form:
-                    form_data = aiohttp.FormData()
+                    form_data = aiohttp.FormData(quote_fields=False)
                     for params in form:
                         form_data.add_field(**params)
+
                     kwargs["data"] = form_data
 
                 try:
@@ -469,94 +471,82 @@ class HTTPClient:
     def send_typing(self, channel_id: Snowflake) -> Response[None]:
         return self.request(Route("POST", "/channels/{channel_id}/typing", channel_id=channel_id))
 
-    def send_multipart_helper(
+    def multipart_request_helper(
         self,
         route: Route,
         *,
         files: Sequence[File],
-        content: Optional[str] = None,
-        tts: bool = False,
-        embed: Optional[embed.Embed] = None,
-        embeds: Optional[Iterable[Optional[embed.Embed]]] = None,
-        nonce: Optional[str] = None,
         allowed_mentions: Optional[message.AllowedMentions] = None,
-        message_reference: Optional[message.MessageReference] = None,
-        stickers: Optional[List[sticker.StickerItem]] = None,
+        attachments: Optional[List[message.Attachment]] = None,
+        content: Optional[str] = None,
         components: Optional[List[components.Component]] = None,
+        embeds: Optional[List[embed.Embed]] = None,
+        flags: Optional[int] = None,
+        message_reference: Optional[message.MessageReference] = None,
+        nonce: Optional[str] = None,
+        stickers: Optional[List[sticker.StickerItem]] = None,
+        tts: bool = False,
     ) -> Response[message.Message]:
         form = []
+        payload: Dict[str, Any] = {}
 
-        payload: Dict[str, Any] = {"tts": tts}
-        if content:
-            payload["content"] = content
-        if embed:
-            payload["embeds"] = [embed]
-        if embeds:
-            payload["embeds"] = embeds
-        if nonce:
-            payload["nonce"] = nonce
         if allowed_mentions:
             payload["allowed_mentions"] = allowed_mentions
-        if message_reference:
-            payload["message_reference"] = message_reference
+        if content:
+            payload["content"] = content
         if components:
             payload["components"] = components
+        if embeds is not None:
+            payload["embeds"] = embeds
+        if flags:
+            payload["flags"] = flags
+        if message_reference:
+            payload["message_reference"] = message_reference
+        if nonce:
+            payload["nonce"] = nonce
         if stickers:
             payload["sticker_ids"] = stickers
+        if tts is not None:
+            payload["tts"] = tts
 
-        form.append({"name": "payload_json", "value": utils._to_json(payload)})
-        if len(files) == 1:
-            file = files[0]
+        if attachments is None:
+            attachments: List[Dict[str, Union[int, str]]] = []
+
+        for index, file in enumerate(files):
+            to_append: Dict[str, Union[int, str]] = {"id": index, "filename": file.filename}  # type: ignore | filename can't be None.
+            if file.description is not None:
+                to_append["description"] = file.description
+
+            attachments.append(to_append)  # type: ignore | attachments isn't None.
+
             form.append(
                 {
-                    "name": "file",
+                    "name": f"files[{index}]",
                     "value": file.fp,
                     "filename": file.filename,
                     "content_type": "application/octet-stream",
                 }
             )
-        else:
-            for index, file in enumerate(files):
-                form.append(
-                    {
-                        "name": f"file{index}",
-                        "value": file.fp,
-                        "filename": file.filename,
-                        "content_type": "application/octet-stream",
-                    }
-                )
 
+        payload["attachments"] = attachments
+        form.append({"name": "payload_json", "value": utils._to_json(payload)})
         return self.request(route, form=form, files=files)
 
-    def send_files(
+    def send_files(self, channel_id: Snowflake, *, files: Sequence[File], **fields: Any) -> Response[message.Message]:
+        r = Route("POST", "/channels/{channel_id}/messages", channel_id=channel_id)
+        return self.multipart_request_helper(r, files=files, **fields)
+
+    def edit_files(
         self,
         channel_id: Snowflake,
+        message_id: Snowflake,
         *,
         files: Sequence[File],
-        content: Optional[str] = None,
-        tts: bool = False,
-        embed: Optional[embed.Embed] = None,
-        embeds: Optional[List[embed.Embed]] = None,
-        nonce: Optional[str] = None,
-        allowed_mentions: Optional[message.AllowedMentions] = None,
-        message_reference: Optional[message.MessageReference] = None,
-        stickers: Optional[List[sticker.StickerItem]] = None,
-        components: Optional[List[components.Component]] = None,
+        **fields: Any,
     ) -> Response[message.Message]:
-        r = Route("POST", "/channels/{channel_id}/messages", channel_id=channel_id)
-        return self.send_multipart_helper(
-            r,
-            files=files,
-            content=content,
-            tts=tts,
-            embed=embed,
-            embeds=embeds,
-            nonce=nonce,
-            allowed_mentions=allowed_mentions,
-            message_reference=message_reference,
-            stickers=stickers,
-            components=components,
-        )
+        fields["tts"] = None
+        r = Route("PATCH", "/channels/{channel_id}/messages/{message_id}", channel_id=channel_id, message_id=message_id)
+        return self.multipart_request_helper(r, files=files, **fields)
 
     def delete_message(
         self, channel_id: Snowflake, message_id: Snowflake, *, reason: Optional[str] = None
@@ -1836,7 +1826,7 @@ class HTTPClient:
             application_id=application_id,
             interaction_token=token,
         )
-        return self.send_multipart_helper(
+        return self.multipart_request_helper(
             r,
             content=content,
             files=files,

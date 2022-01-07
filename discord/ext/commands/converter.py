@@ -601,6 +601,7 @@ class ColourConverter(Converter[discord.Colour]):
 
     The following formats are accepted:
 
+    - ``<hex>``
     - ``0x<hex>``
     - ``#<hex>``
     - ``0x#<hex>``
@@ -671,7 +672,9 @@ class ColourConverter(Converter[discord.Colour]):
 
         arg = arg.replace(" ", "_")
         method = getattr(discord.Colour, arg, None)
-        if arg.startswith("from_") or method is None or not inspect.ismethod(method):
+        if method is None:
+            return self.parse_hex_number(argument)
+        elif arg.startswith("from_") or not inspect.ismethod(method):
             raise BadColourArgument(arg)
         return method()
 

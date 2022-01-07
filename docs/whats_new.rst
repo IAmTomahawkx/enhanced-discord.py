@@ -13,11 +13,83 @@ in specific versions.
 
 .. _vp2p0p0:
 
-v2.0.0
+v2.0.0 - Moving to enhanced-discord.py
 --------
 
 This version was partly developed by Danny, and partly by the enhanced-discord.py contributors.
 The library has been updated with breaking changes, and as such the major version was changed.
+
+In this part we will show everything that was added or changed after discord.py ended maintenance. 
+
+
+- Japanese docs were removed, as we are no longer able to keep them in sync.
+- Commands and groups are now case insensitive by default
+- Throughout the source, more typehinting has been added
+- The source is now formatted with Black
+- Events in docs are now sorted by category
+
+
+Breaking Changes
+~~~~~~~~~~~~~~~~~
+
+- Intents.default() has been removed
+- intents is now a required kwarg in :class:`Client` and :class:`~ext.commands.Bot`
+
+
+New Features
+~~~~~~~~~~~~~~
+
+- Added member filters
+    - Add :attr:`Guild.bots`
+    - Add :attr:`Guild.humans`
+    - Add :attr:`TextChannel.bots`
+    - Add :attr:`TextChannel.humans`
+- Add :meth:`Thread.archive`
+- Added new colours
+    - Add :meth:`Colour.dark_blurple`
+    - Add :meth:`Colour.nitro_booster`
+- Add :func:`on_raw_typing`
+- Add :class:`ProtocolURL`
+- Add support for :attr:`Role.icon` in :meth:`Role.edit`
+- Add :attr:`File.description`
+- Add support for editing files in :meth:`Message.edit`
+- Add support for ``int()`` to all objects with an id attribute which will return the ``.id``
+- Add support for ``str()`` to :class:`Message` returning the :attr:`Message.content`
+- Add ``silent`` kwarg to :meth:`Message.delete`
+- Added support for timeout
+    - Add :attr:`Guild.timed_out_members`
+    - Add :attr:`Member.timed_out`
+    - Add timeout_until kwarg to :meth:`Member.edit`
+- Add :meth:`Guild.try_member`
+- Add ``with_counts`` kwarg to :meth:`Client.fetch_guild`
+- Add :attr:`Guild.approximate_presence_count`
+- Add :attr:`Guild.approximate_member_count`
+- Add :meth:`Client.try_user`
+- |commands| Add :meth:`Bot.try_owners <.ext.commands.Bot.try_owners>`
+- |commands| Add :meth:`Bot.populate_owners <.ext.commands.Bot.populate_owners>`
+- Add support for slash command in ext.commands
+    - |commands| Add :meth:`Bot.process_slash_commands <.ext.commands.Bot.process_slash_commands>`
+    - |commands| Add :meth:`Context.author_permissions <.ext.commands.Context.author_permissions>`
+    - |commands| Add ephemeral kwarg to :meth:`Context.send <.ext.commands.Context.send>` for slash commands only
+    - |commands| Add :meth:`Context.defer <.ext.commands.Context.defer>`
+    - Add :class:`~ext.commands.Option`
+- Add ``delete_after`` kwarg to Interaction responses
+- Update permissions
+    - Add :attr:`Permissions.start_embedded_activities`
+    - Add :attr:`Permissions.admin` as alias to :attr:`Permissions.administrator`
+    - Add :attr:`Permissions.moderate_members`
+
+- Images and thumbnails of an :class:`Embed` can now be set through their property :attr:`Embed.image` / :attr:`Embed.thumbnail`
+- ``static_format`` is now preferred over ``format`` in an :class:`Asset`
+
+
+v2.0.0 - Before enhanced-discord.py
+--------
+
+This version was partly developed by Danny, and partly by the enhanced-discord.py contributors.
+The library has been updated with breaking changes, and as such the major version was changed.
+
+In this part we will show everything that was added or changed in v2 by the original discord.py developers.
 
 
 - Performance of the library has improved significantly (all times with 1 process and 1 AutoShardedBot):
@@ -29,7 +101,6 @@ The library has been updated with breaking changes, and as such the major versio
     - There may still be bugs however.
     - For best type hinting experience consider using Pyright.
 - Almost all edit methods now return their updated counterpart rather than doing an in-place edit.
-- Japanese docs were removed, as we are no longer able to keep them in sync.
 
 
 Breaking Changes
@@ -109,7 +180,6 @@ New Features
 - Add :attr:`User.display_avatar` and :attr:`Member.display_avatar` to get the user's displayed avatar.
 - Add :attr:`Colour.brand_green` and :attr:`Colour.brand_red`
 - |commands| :attr:`CommandOnCooldown.type` to get back the type of the cooldown since it was removed from :class:`Cooldown`
-- Add :attr:`Guild.bots` and :attr:`Guild.humans`
 
 
 Bug Fixes
