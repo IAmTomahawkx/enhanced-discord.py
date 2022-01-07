@@ -4,7 +4,22 @@ import inspect
 import sys
 import json
 import traceback
-from typing import List, Optional, TypeVar, Dict, Any, TYPE_CHECKING, Union, Type, Literal, Tuple, Iterable, Generic
+from typing import (
+    List,
+    Optional,
+    TypeVar,
+    Dict,
+    Any,
+    TYPE_CHECKING,
+    Union,
+    Type,
+    Literal,
+    Tuple,
+    Iterable,
+    Generic,
+    Coroutine,
+    Callable,
+)
 
 from .utils import MISSING, maybe_coroutine, evaluate_annotation
 from .enums import ApplicationCommandType, InteractionType
@@ -26,6 +41,7 @@ if TYPE_CHECKING:
         ApplicationCommandInteractionDataOption,
         ApplicationCommandOptionChoice,
     )
+    from .types.app import ApplicationCommand as UploadableApplicationCommand, SlashCommand as UploadableSlashCommand
 
 __all__ = ("AutoCompleteResponse", "Command", "UserCommand", "MessageCommand", "SlashCommand", "Option")
 
@@ -59,11 +75,12 @@ def _option_to_dict(option: _OptionData) -> dict:
         if arg.__args__[1] is NoneType:  # type: ignore
             payload["required"] = False
             arg = arg.__args__[0]  # type: ignore
+            origin = getattr(arg, "__origin__", None)
 
         if arg == Union[Member, Role]:
             payload["type"] = 9
 
-    elif origin is Literal:
+    if origin is Literal:
         values = arg.__args__  # type: ignore
         python_type_ = type(values[0])
         if (
@@ -406,14 +423,23 @@ class SlashCommand(Command, Generic[CommandT]):
         self.__dict__.update(parsed)
 
 
+if TYPE_CHECKING:
+    _callback = Callable[[Client, Interaction, ApplicationCommand], Coroutine[Any, Any, None]]
+    commandstoreT = Dict[int, Tuple[ApplicationCommand, _callback]]
+    preregistrationT = Dict[
+        Optional[int], List[Tuple[Union[UploadableApplicationCommand, UploadableSlashCommand], _callback]]
+    ]
+    # the None key will hold global commands
+
+
 class CommandState:
     def __init__(self, state: ConnectionState, http: HTTPClient) -> None:
         self.state = state
         self.http = http
         self._application_id: Optional[str] = None
 
-        self.command_store: Dict[int, Type[Command]] = {}  # not using Snowflake to keep one type
-        self.pre_registration: Dict[Optional[int], List[Type[Command]]] = {}  # the None key will hold global commands
+        self.command_store: commandstoreT = {}  # not using Snowflake to keep one type
+        self.pre_registration: preregistrationT = {}
 
     async def upload_global_commands(self) -> None:
         """
@@ -425,13 +451,13 @@ class CommandState:
 
         global_commands = self.pre_registration.get(None, [])
         if global_commands:
-            store = {(x._name_, x.type().value): x for x in global_commands}  # type: ignore
+            store = {(cmd["name"], cmd["type"]): callback for cmd, callback in global_commands}
             payload: List[ApplicationCommand] = await self.http.bulk_upsert_global_commands(
-                self._application_id, [x.to_dict() for x in global_commands if not x._parent_]  # type: ignore
+                self._application_id, [cmd[0] for cmd in global_commands]  # type: ignore
             )
-            for x in payload:  # type: ApplicationCommand
-                self.command_store[int(x["id"])] = t = store[(x["name"], x["type"])]
-                t._id_ = int(x["id"])
+
+            for command in payload:  # type: ApplicationCommand
+                self.command_store[int(command["id"])] = (command, store[(command["name"], command["type"])])  # type: ignore
 
     async def upload_guild_commands(self, guild: Optional[Snowflake] = None) -> None:
         """
@@ -442,8 +468,6 @@ class CommandState:
             appinfo = await self.http.application_info()
             self._application_id = appinfo["id"]
 
-        targets: Iterable[Tuple[Optional[Snowflake], List[Type[Command]]]]
-
         if guild:
             if int(guild) not in self.pre_registration:
                 raise ValueError(f"guild {guild} has no slash commands set")
@@ -451,84 +475,82 @@ class CommandState:
             targets = ((guild, self.pre_registration[int(guild)]),)
 
         else:
-            targets = self.pre_registration.items()  # type: ignore
+            targets = tuple(self.pre_registration.items())  # type: ignore
 
         for (guild, commands) in targets:
             if guild is None:
                 continue  # global commands
 
-            store = {(x._name_, x.type().value): x for x in commands}  # type: ignore
-            t = [x.to_dict() for x in commands if not x._parent_]
+            store = {(cmd["name"], cmd["type"]): callback for cmd, callback in commands}  # type: ignore
             payload: List[ApplicationCommand] = await self.http.bulk_upsert_guild_commands(
-                self._application_id, guild, t
+                self._application_id, guild, [cmd for cmd, callback in commands]
             )
-            for x in payload:
-                self.command_store[int(x["id"])] = t = store[(x["name"], x["type"])]
-                t._id_ = int(x["id"])
+            for command in payload:
+                self.command_store[int(command["id"])] = (command, store[(command["name"], command["type"])])
 
-    async def upload_guild_command_permissions(self, guild_id: Snowflake) -> None:
-        commands: List[Type[Command]] = self.pre_registration.get(int(guild_id))
-        if not commands:
-            raise RuntimeError(
-                "No application commands exist for this guild"
-            )  # TODO replace this exception with something better
-
-        await self.http.bulk_edit_guild_application_command_permissions(
-            self._application_id, guild_id, [x.to_permissions_dict(guild_id) for x in commands]
-        )
-
-    def add_command(self, command: Type[Command]) -> None:
-        if not hasattr(command, "_type_"):
-            raise ValueError("Application Command does not have a type mixin")
-
-        if command._guilds_ is None:
+    def add_command(
+        self,
+        command: Union[UploadableApplicationCommand, UploadableSlashCommand],
+        callback: _callback,
+        *,
+        guild_ids: Optional[List[Snowflake]] = None,
+    ) -> None:
+        if guild_ids is None:
             if None not in self.pre_registration:
                 self.pre_registration[None] = []
 
-            self.pre_registration[None].append(command)
+            self.pre_registration[None].append((command, callback))
 
         else:
-            for x in command._guilds_:
-                x = int(x)
-                if x not in self.pre_registration:
-                    self.pre_registration[x] = []
+            for guild_id in guild_ids:
+                guild_id = int(guild_id)
+                if guild_id not in self.pre_registration:
+                    self.pre_registration[guild_id] = []
 
-                self.pre_registration[int(x)].append(command)
+                self.pre_registration[guild_id].append((command, callback))
+
+    def _internal_add(self, cls: Type[Command]) -> None:
+        async def callback(client: Client, interaction: Interaction, _) -> None:
+            nonlocal cls
+            cls._id_ = int(interaction.data["id"])
+            options = interaction.data.get("options")
+
+            # first check if we're dealing with a subcommand
+            if cls._type_ is ApplicationCommandType.slash_command:
+                while options and options[0]["type"] in {1, 2}:
+                    name = options[0]["name"]
+                    options = options[0]["options"]
+                    cls = cls._children_[name]
+
+            inst = cls()
+            inst.client = client
+            inst.interaction = interaction
+
+            if interaction.type is InteractionType.application_command_autocomplete:
+                try:
+                    await self._dispatch_autocomplete(inst, options)
+                except Exception as e:
+                    client.dispatch("application_command_error", interaction, e)  # TODO: document this one
+                    await maybe_coroutine(inst.error, e)
+
+            else:
+                try:
+                    await self._internal_dispatch(inst, options)
+                except Exception as e:
+                    client.dispatch("application_command_error", interaction, e)  # TODO: document this one
+                    await maybe_coroutine(inst.error, e)
+
+        self.add_command(cls.to_dict(), callback, guild_ids=cls._guilds_ or None)
 
     async def dispatch(self, client: Client, interaction: Interaction) -> None:
         print(json.dumps(interaction.data, indent=4))
-        cls = self.command_store.get(int(interaction.data["id"]))
-        if cls is None:
+        command, callback = self.command_store.get(int(interaction.data["id"]), (None, None))
+        if command is None:
             return
 
-        # first check if we're dealing with a subcommand
+        return await callback(client, interaction, command)
 
-        options = interaction.data.get("options")
-        if cls._type_ is ApplicationCommandType.slash_command:
-            while options and options[0]["type"] in {1, 2}:
-                name = options[0]["name"]
-                options = options[0]["options"]
-                cls = cls._children_[name]
-
-        inst = cls()
-        inst.client = client
-        inst.interaction = interaction
-
-        if interaction.type is InteractionType.application_command_autocomplete:
-            try:
-                await self._dispatch_autocomplete(inst, options)
-            except Exception as e:
-                client.dispatch("application_command_error", interaction, e)  # TODO: document this one
-                await maybe_coroutine(inst.error, e)
-
-        else:
-            try:
-                await self._dispatch(inst, options)
-            except Exception as e:
-                client.dispatch("application_command_error", interaction, e)  # TODO: document this one
-                await maybe_coroutine(inst.error, e)
-
-    async def _dispatch(self, inst: CommandT, options: List[ApplicationCommandInteractionDataOption]):
+    async def _internal_dispatch(self, inst: CommandT, options: List[ApplicationCommandInteractionDataOption]):
         if not await maybe_coroutine(inst.pre_check):
             raise RuntimeError(f"The pre-check for {inst._name_} failed.")
 

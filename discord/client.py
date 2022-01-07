@@ -1740,9 +1740,6 @@ class Client:
     async def upload_guild_application_commands(self, guild: Guild = None) -> None:
         await self._application_command_store.upload_guild_commands(guild)
 
-    async def upload_guild_application_command_permissions(self, guild: Guild) -> None:
-        await self._application_command_store.upload_guild_command_permissions(guild.id)
-
     def application_command(self, cls: ApplicationCommand) -> ApplicationCommand:
-        self._application_command_store.add_command(cls)
+        self._application_command_store._internal_add(cls)
         return cls
