@@ -310,8 +310,8 @@ class BotBase(GroupMixin):
                     self._application_command_store.add_command(global_command, self.process_slash_commands, None)  # type: ignore
             else:
                 for global_command in global_commands:
-                    self._application_command_store.add_command(global_command, self.process_slash_commands, self.slash_command_guilds) # type: ignore
-        
+                    self._application_command_store.add_command(global_command, self.process_slash_commands, self.slash_command_guilds)  # type: ignore
+
     @discord.utils.copy_doc(discord.Client.close)
     async def close(self) -> None:
         for extension in tuple(self.__extensions):
@@ -1236,7 +1236,7 @@ class BotBase(GroupMixin):
         ctx = await self.get_context(message)
         await self.invoke(ctx)
 
-    async def process_slash_commands(self, interaction: discord.Interaction, _command_payload = None):
+    async def process_slash_commands(self, interaction: discord.Interaction, _command_payload=None):
         """|coro|
 
         This function processes a slash command interaction into a usable
@@ -1262,7 +1262,6 @@ class BotBase(GroupMixin):
         command_name, command_options = _unwrap_slash_groups(interaction.data)
 
         command = self.get_command(command_name)
-        
         if command is None:
             raise errors.CommandNotFound(f'Command "{command_name}" is not found')
 
@@ -1323,8 +1322,7 @@ class BotBase(GroupMixin):
         await self.process_commands(message)
 
     async def on_interaction(self, interaction: discord.Interaction):
-        await discord.Client.on_interaction(self, interaction) # type: ignore
-        # await self.process_slash_commands(interaction)
+        await discord.Client.on_interaction(self, interaction)  # type: ignore
 
 
 class Bot(BotBase, discord.Client):
