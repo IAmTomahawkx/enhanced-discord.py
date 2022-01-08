@@ -26,3 +26,6 @@ class EphemeralCommand(
 
         # send_message accepts ephemeral keyword parameter to send a message that only the user can see.
         await self.interaction.response.send_message(self.message, ephemeral=True)
+
+
+client.run("token")

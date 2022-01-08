@@ -144,7 +144,7 @@ class ColourCommand(
             return response
 
         # Loop through all our colours.
-        # Check if the value that the user typed is in the color.
+        # Check if the value that the user typed is in the colour.
         # If it does, add it to the response.
         for colour in colours:
             if str(value).strip("#") in str(colour)[1:]:
