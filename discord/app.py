@@ -521,7 +521,7 @@ class CommandState:
                 while options and options[0]["type"] in {1, 2}:
                     name = options[0]["name"]
                     options = options[0]["options"]
-                    cls = cls._children_[name]
+                    cls = cls._children_.get(name, cls)
 
             inst = cls()
             inst.client = client
