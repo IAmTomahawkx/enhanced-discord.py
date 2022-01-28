@@ -19,9 +19,22 @@ SlashCommand
     :members:
     :inherited-members:
 
+    .. attribute:: _description_
+        
+        The description of the command
+
+    .. attribute:: _id_
+        
+        The ID of the application command
+    
+    .. attribute:: _name_
+        
+        The name of the command
+
     .. attribute:: client
 
         The :class:`.Client` instance that this command is attached to.
+
     .. attribute:: interaction
 
         The :class:`.Interaction` instance that called the command.
@@ -36,6 +49,18 @@ UserCommand
     :inherited-members:
     :exclude-members: autocomplete
     
+    .. attribute:: _description_
+        
+        The description of the command
+
+    .. attribute:: _id_
+        
+        The ID of the application command
+    
+    .. attribute:: _name_
+        
+        The name of the command
+
     .. attribute:: client
 
         The :class:`.Client` instance that this command is attached to.
@@ -56,6 +81,18 @@ MessageCommand
     :inherited-members:
     :exclude-members: autocomplete
 
+    .. attribute:: _description_
+        
+        The description of the command
+
+    .. attribute:: _id_
+        
+        The ID of the application command
+    
+    .. attribute:: _name_
+        
+        The name of the command
+
     .. attribute:: client
 
         The :class:`.Client` instance that this command is attached to.
@@ -66,7 +103,7 @@ MessageCommand
     
         The :class:`.Message` instance on which the command was called.
 
-Unknown
+Classes
 ---------
 
 Option
