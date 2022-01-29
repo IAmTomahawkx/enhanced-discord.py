@@ -131,9 +131,10 @@ AutoCompleteResponseT = TypeVar("AutoCompleteResponseT", bound="AutoCompleteResp
 
 class AutoCompleteResponse(dict):  # TODO: docs
     """Represents a response to an autocomplete request.
-    
+
     Used to show list of options to the user.
     """
+
     def add_option(self, name: str, value: Union[str, int]) -> AutoCompleteResponseT:
         """Add an option to the response."""
         self[name] = value
@@ -141,7 +142,7 @@ class AutoCompleteResponse(dict):  # TODO: docs
 
     def remove_option(self, name: str) -> AutoCompleteResponseT:
         """Remove an option from the response.
-        
+
         Raises
         ------
         KeyError
@@ -154,23 +155,30 @@ class AutoCompleteResponse(dict):  # TODO: docs
         return iter([{"name": k, "value": v} for k, v in self.items()])
 
 
-class Option:
+if TYPE_CHECKING:
+    optionbase = Any
+else:
+    optionbase = object
+
+
+class Option(optionbase):
     """Represents a command option.
-    
+
     Attributes
     ----------
-    autocomplete
+    autocomplete: :class:`bool`
         Whether or not the option should be autocompleted.
-    default
+    default: :class:`Any`
         The default value for the option if the option is optional.
-    description
+    description: :class:`str`
         The description of the option.
-    max
+    max: :class:`Union[class:`int`, :class:`float`]`
         The maximum value for the option. Inclusive. Only valid for integers and floats.
-    min
+    min: :class:`Union[class:`int`, :class:`float`]`
         The minimum value for the option. Inclusive. Only valid for integers and floats.
 
     """
+
     __slots__ = ("autocomplete", "default", "description", "max", "min")
 
     def __init__(
@@ -367,7 +375,7 @@ class Command(metaclass=CommandMeta):
         self, options: Dict[str, Union[int, float, str]], focused: str
     ) -> List[ApplicationCommandOptionChoice]:
         """This method is called when an autocomplete is triggered.
-        
+
         Parameters
         ----------
         options : Dict[str, Union[int, float, str]]
@@ -391,7 +399,7 @@ class Command(metaclass=CommandMeta):
 
     async def error(self, exception: Exception) -> None:
         """This method is called whenever an exception occurs in :meth:`.autocomplete` or :meth:`.callback`
-        
+
         Parameters
         ----------
 
