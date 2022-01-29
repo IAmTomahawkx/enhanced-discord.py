@@ -1745,7 +1745,7 @@ class Client:
 
     def application_command(self, cls: ApplicationCommand) -> ApplicationCommand:
         """A decorator that register an application command.
-        
+
         You can find more info on the :ref:`application commands page <_app_commands>`
 
         """
