@@ -1335,11 +1335,12 @@ class Messageable:
             raise InvalidArgument("cannot pass both embed and embeds parameter to send()")
 
         if embed is not None:
-            embed = embed.to_dict()
+            embeds = [embed]
 
-        elif embeds is not None:
+        if embeds is not None:
             if len(embeds) > 10:
                 raise InvalidArgument("embeds parameter must be a list of up to 10 elements")
+
             embeds = [embed.to_dict() for embed in embeds]
 
         if stickers is not None:
@@ -1380,24 +1381,9 @@ class Messageable:
             if not isinstance(file, File):
                 raise InvalidArgument("file parameter must be File")
 
-            try:
-                data = await state.http.send_files(
-                    channel.id,
-                    files=[file],
-                    allowed_mentions=allowed_mentions,
-                    content=content,
-                    tts=tts,
-                    embed=embed,
-                    embeds=embeds,
-                    nonce=nonce,
-                    message_reference=reference,
-                    stickers=stickers,
-                    components=components,
-                )
-            finally:
-                file.close()
+            files = [file]
 
-        elif files is not None:
+        if files is not None:
             if len(files) > 10:
                 raise InvalidArgument("files parameter must be a list of up to 10 elements")
             elif not all(isinstance(file, File) for file in files):
@@ -1409,7 +1395,6 @@ class Messageable:
                     files=files,
                     content=content,
                     tts=tts,
-                    embed=embed,
                     embeds=embeds,
                     nonce=nonce,
                     allowed_mentions=allowed_mentions,
@@ -1440,6 +1425,7 @@ class Messageable:
 
         if delete_after is not None:
             await ret.delete(delay=delete_after)
+
         return ret
 
     async def trigger_typing(self) -> None:

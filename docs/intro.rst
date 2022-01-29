@@ -13,7 +13,7 @@ in creating applications that utilise the Discord API.
 Prerequisites
 ---------------
 
-discord.py works with Python 3.8 or higher. Support for earlier versions of Python
+enhanced-discord.py works with Python 3.8 or higher. Support for earlier versions of Python
 is not provided. Python 2.7 or lower is not supported. Python 3.7 or lower is not supported.
 
 
@@ -22,18 +22,18 @@ is not provided. Python 2.7 or lower is not supported. Python 3.7 or lower is no
 Installing
 -----------
 
-You can get the library directly from PyPI: ::
+You can get the library from github: ::
 
-    python3 -m pip install -U discord.py
+    python3 -m pip install git+https://github.com/iDevision/enhanced-discord.py.git
 
 If you are using Windows, then the following should be used instead: ::
 
-    py -3 -m pip install -U discord.py
+    py -3 -m pip install -U git+https://github.com/iDevision/enhanced-discord.py.git
 
 
 To get voice support, you should use ``discord.py[voice]`` instead of ``discord.py``, e.g. ::
 
-    python3 -m pip install -U discord.py[voice]
+    python3 -m pip install -U git+https://github.com/iDevision/enhanced-discord.py.git#egg=voice
 
 On Linux environments, installing voice requires getting the following dependencies:
 
