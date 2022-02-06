@@ -330,6 +330,7 @@ class Command(metaclass=CommandMeta):
                 "name": cls._name_,
                 "description": cls._description_ or "no description",
                 "options": [x.to_dict() for x in cls._children_.values()],
+                "type":1,
             }
 
             if cls._parent_:
