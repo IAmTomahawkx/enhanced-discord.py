@@ -72,3 +72,9 @@ class VersionInfo(NamedTuple):
 version_info: VersionInfo = VersionInfo(major=2, minor=0, micro=0, releaselevel="alpha", serial=0)
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+try:
+    import discord_components
+    raise RuntimeError("package `discord_components` appears to be installed. Please uninstall it.")
+except ImportError:
+    pass
