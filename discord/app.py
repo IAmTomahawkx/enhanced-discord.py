@@ -178,6 +178,18 @@ class AutoCompleteResponse(dict):  # TODO: docs
 
     def __iter__(self):
         return iter([{"name": k, "value": v} for k, v in self.items()])
+        
+    def __getitem__(self, x: Union[slice, int]) -> AutoCompleteResponseT:
+        if isinstance(x, slice):
+            self = AutoCompleteResponse({
+                key: value
+                for key, value in list(self.items())[x]
+            })
+            return self
+        elif isinstance(x, int):
+            return AutoCompleteResponse(list(self.items())[x])
+        else:
+            raise TypeError("slice indices must be integers or None")
 
 
 class Option(optionbase):
