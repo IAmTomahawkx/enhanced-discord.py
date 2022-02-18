@@ -191,7 +191,7 @@ class AutoCompleteResponse(dict):  # TODO: docs
                 response.add_option(k, v)
             return response
         elif isinstance(x, int):
-            return AutoCompleteResponse(list(self.items())[x])
+            return AutoCompleteResponse([{k: v} for k, v in self.items()][x])
         elif isinstance(x, str):
             return super().__getitem__(x)
         else:
