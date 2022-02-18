@@ -182,12 +182,10 @@ class AutoCompleteResponse(dict):  # TODO: docs
     def __getitem__(self, x: Union[slice, int]) -> AutoCompleteResponseT:
         if isinstance(x, slice):
             response = AutoCompleteResponse()
-            y = 0
             for i, (k, v) in enumerate(self.items()):
                 if x.start and i < x.start or x.stop and i > x.stop:
                     continue
-                y += 1
-                if x.step and y%x.step:
+                if x.step and (i-x.start)%x.step:
                     continue
                 response.add_option(k, v)
             if not response and i:
