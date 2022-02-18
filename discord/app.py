@@ -183,13 +183,12 @@ class AutoCompleteResponse(dict):  # TODO: docs
         if isinstance(x, slice):
             response = AutoCompleteResponse()
             for i, (k, v) in enumerate(self.items()):
-                if x.start and i < x.start or x.stop and i > x.stop:
+                step_start = x.start or 0
+                if x.start and i < x.start or x.stop and i >= x.stop:
                     continue
-                if x.step and (i-x.start)%x.step:
+                if x.step and (i-step_start)%x.step:
                     continue
                 response.add_option(k, v)
-            if not response and i:
-                raise IndexError("AutoCompleteResponse index out of range.")
             return response
         elif isinstance(x, int):
             for i, (k, v) in enumerate(self.items()):
