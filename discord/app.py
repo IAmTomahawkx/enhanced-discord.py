@@ -191,10 +191,7 @@ class AutoCompleteResponse(dict):  # TODO: docs
                 response.add_option(k, v)
             return response
         elif isinstance(x, int):
-            for i, (k, v) in enumerate(self.items()):
-                if i == x:
-                    return AutoCompleteResponse({k: v})
-            raise IndexError("AutoCompleteResponse index out of range.")
+            return AutoCompleteResponse(list(self.items())[x])
         elif isinstance(x, str):
             return super().__getitem__(x)
         else:
