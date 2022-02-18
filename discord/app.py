@@ -181,13 +181,25 @@ class AutoCompleteResponse(dict):  # TODO: docs
         
     def __getitem__(self, x: Union[slice, int]) -> AutoCompleteResponseT:
         if isinstance(x, slice):
-            self = AutoCompleteResponse({
-                key: value
-                for key, value in list(self.items())[x]
-            })
-            return self
+            response = AutoCompleteResponse()
+            y = 0
+            for i, (k, v) in enumerate(self.items()):
+                if x.start and i < x.start or x.stop and i > x.stop:
+                    continue
+                y += 1
+                if x.step and y%x.step:
+                    continue
+                response.add_option(k, v)
+            if not response and i:
+                raise IndexError("AutoCompleteResponse index out of range.")
+            return response
         elif isinstance(x, int):
-            return AutoCompleteResponse(list(self.items())[x])
+            for i, (k, v) in enumerate(self.items()):
+                if i == x:
+                    return AutoCompleteResponse({k: v})
+            raise IndexError("AutoCompleteResponse index out of range.")
+        elif isinstance(x, str):
+            return super().__getitem__(x)
         else:
             raise TypeError("slice indices must be integers or None")
 
