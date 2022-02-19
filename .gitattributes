@@ -1,0 +1,12 @@
+# automatically normalize line endings
+* text=auto
+
+*.py    text
+*.rst   text
+*.yml   text
+
+# Binary files that should not be normalized or diffed
+*.dll   binary
+*.ico   binary
+*.png   binary
+*.svg   binary
