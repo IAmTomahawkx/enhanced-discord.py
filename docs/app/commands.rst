@@ -145,7 +145,7 @@ Choices
 
 You can make predefined choices for an argument by providing the type as :class:`typing.Literal`. They look like this:
 
-<image here>
+.. image:: ../images/app/slash_command_choices.png
 
 choices only support strings, ints and floats.
 

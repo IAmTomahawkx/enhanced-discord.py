@@ -412,6 +412,7 @@ class Command(metaclass=CommandMeta):
         return True
 
     async def pre_check(self) -> bool:
+        """This method is called before .meth:`check` is called. No class attributes are available at the time of execution."""
         return True
 
     async def error(self, exception: Exception) -> None:
@@ -571,7 +572,7 @@ class CommandState:
 
     def _internal_add(self, cls: Type[Command]) -> None:
         async def callback(cls: Type[Command], client: Client, interaction: Interaction, _) -> None:
-            
+
             cls._id_ = int(interaction.data["id"])
             options = interaction.data.get("options")
 
