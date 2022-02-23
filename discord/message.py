@@ -1048,8 +1048,9 @@ class Message(Hashable):
         return self.type not in (
             MessageType.default,
             MessageType.reply,
-            MessageType.application_command,
+            MessageType.chat_input_command,
             MessageType.thread_starter_message,
+            MessageType.context_menu_command,
         )
 
     @utils.cached_slot_property("_cs_system_content")

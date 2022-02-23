@@ -1326,7 +1326,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
         elif nested == 3:
             raise ApplicationCommandRegistrationError(self, f"{self.qualified_name} is too deeply nested!")
 
-        payload = {"name": self.name, "description": self.short_doc or "no description", "options": []}
+        payload = {"name": self.name, "description": self.short_doc or "no description", "options": [], "type": 1}
         if nested != 0:
             payload["type"] = 1
 
@@ -2078,6 +2078,10 @@ def has_role(item: Union[int, str]) -> Callable[[T], T]:
         Raise :exc:`.MissingRole` or :exc:`.NoPrivateMessage`
         instead of generic :exc:`.CheckFailure`
 
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``required_role`` to the command that allows you to get the set role.
+
     Parameters
     -----------
     item: Union[:class:`int`, :class:`str`]
@@ -2097,7 +2101,7 @@ def has_role(item: Union[int, str]) -> Callable[[T], T]:
             raise MissingRole(item)
         return True
 
-    return check(predicate)
+    return check(predicate, required_role=item)
 
 
 def has_any_role(*items: Union[int, str]) -> Callable[[T], T]:
@@ -2115,6 +2119,10 @@ def has_any_role(*items: Union[int, str]) -> Callable[[T], T]:
 
         Raise :exc:`.MissingAnyRole` or :exc:`.NoPrivateMessage`
         instead of generic :exc:`.CheckFailure`
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``required_roles`` to the command that allows you to get the set role(s).
 
     Parameters
     -----------
@@ -2159,6 +2167,10 @@ def bot_has_role(item: int) -> Callable[[T], T]:
 
         Raise :exc:`.BotMissingRole` or :exc:`.NoPrivateMessage`
         instead of generic :exc:`.CheckFailure`
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``bot_required_role`` to the command that allows you to get the set role.
     """
 
     def predicate(ctx):
@@ -2189,6 +2201,10 @@ def bot_has_any_role(*items: int) -> Callable[[T], T]:
 
         Raise :exc:`.BotMissingAnyRole` or :exc:`.NoPrivateMessage`
         instead of generic checkfailure
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``bot_required_roles`` to the command that allows you to get the set role(s).
     """
 
     def predicate(ctx):
@@ -2218,6 +2234,10 @@ def has_permissions(**perms: bool) -> Callable[[T], T]:
 
     This check raises a special exception, :exc:`.MissingPermissions`
     that is inherited from :exc:`.CheckFailure`.
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``required_permissions`` to the command that allows you to get the set permission(s).
 
     Parameters
     ------------
@@ -2260,6 +2280,11 @@ def bot_has_permissions(**perms: bool) -> Callable[[T], T]:
 
     This check raises a special exception, :exc:`.BotMissingPermissions`
     that is inherited from :exc:`.CheckFailure`.
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``bot_required_permissions`` to the command that allows you to get the set permission(s).
+
     """
 
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
@@ -2289,6 +2314,10 @@ def has_guild_permissions(**perms: bool) -> Callable[[T], T]:
     exception, :exc:`.NoPrivateMessage`.
 
     .. versionadded:: 1.3
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``required_guild_permissions`` to the command that allows you to get the set permission(s).
     """
 
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
@@ -2315,6 +2344,10 @@ def bot_has_guild_permissions(**perms: bool) -> Callable[[T], T]:
     members guild permissions.
 
     .. versionadded:: 1.3
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``bot_required_guild_permissions`` to the command that allows you to get the set permission(s).
     """
 
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
@@ -2427,6 +2460,10 @@ def cooldown(
 
     A command can only have a single cooldown.
 
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``cooldown`` to the command that allows you to get the set cooldown.
+
     Parameters
     ------------
     rate: :class:`int`
@@ -2473,6 +2510,8 @@ def dynamic_cooldown(
     :func:`.on_command_error` and the local error handler.
 
     A command can only have a single cooldown.
+
+    This adds an attribute called ``cooldown`` to the command that allows you to get the set cooldown.
 
     .. versionadded:: 2.0
 
@@ -2546,6 +2585,10 @@ def before_invoke(coro) -> Callable[[T], T]:
 
     .. versionadded:: 1.4
 
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``before_invoke`` to the command that allows you to get the set coro.
+
     Example
     ---------
 
@@ -2597,6 +2640,10 @@ def after_invoke(coro) -> Callable[[T], T]:
     do not have to be within the same cog.
 
     .. versionadded:: 1.4
+
+    .. versionchanged:: 2.0
+
+        Adds an attribute called ``after_invoke`` to the command that allows you to get the set coro.
     """
 
     def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:

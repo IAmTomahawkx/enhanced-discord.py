@@ -1352,7 +1352,7 @@ of :class:`enum.Enum`.
         The system message denoting that the author is replying to a message.
 
         .. versionadded:: 2.0
-    .. attribute:: application_command
+    .. attribute:: chat_input_command
 
         The system message denoting that an application (or "slash") command was executed.
 
@@ -1366,6 +1366,11 @@ of :class:`enum.Enum`.
 
         The system message denoting the message in the thread that is the one that started the
         thread's conversation topic.
+
+        .. versionadded:: 2.0
+    .. attribute:: context_menu_command
+
+        The system message denoting that a message was sent in response to a context menu
 
         .. versionadded:: 2.0
 
@@ -1384,7 +1389,10 @@ of :class:`enum.Enum`.
         The user is a HypeSquad Events member.
     .. attribute:: bug_hunter
 
-        The user is a Bug Hunter.
+        The user is a level 1 Bug Hunter.
+    .. attribute:: bug_hunter_level_1
+
+        Alias of :attr:`bug_hunter`.
     .. attribute:: mfa_sms
 
         The user has SMS recovery for Multi Factor Authentication enabled.
@@ -1424,6 +1432,12 @@ of :class:`enum.Enum`.
     .. attribute:: discord_certified_moderator
 
         The user is a Discord Certified Moderator.
+    .. attribute:: bot_http_interactions
+
+        The bot doesn't connect to the gateway but should still be shown as online.
+    .. attribute:: spammer
+
+        The user is marked as a spammer.
 
 .. class:: ActivityType
 
@@ -1469,6 +1483,12 @@ of :class:`enum.Enum`.
     .. attribute:: component
 
         Represents a component based interaction, i.e. using the Discord Bot UI Kit.
+    .. attribute:: application_command_autocomplete
+
+        Represents a slash command autocomplete interaction.
+    .. attribute:: modal_submit
+
+        Represents a modal receive interaction.
 
 .. class:: InteractionResponseType
 
@@ -1502,6 +1522,15 @@ of :class:`enum.Enum`.
         Responds to the interaction by editing the message.
 
         See also :meth:`InteractionResponse.edit_message`
+    .. attribute:: application_command_autocomplete_result
+
+        Responds to the interaction with a list of autocomplete results.
+    .. attribute:: modal
+            
+        Responds to the interaction with a modal.
+
+        See also :meth:`InteractionResponse.send_modal`
+
 
 .. class:: ComponentType
 
@@ -1518,6 +1547,9 @@ of :class:`enum.Enum`.
     .. attribute:: select
 
         Represents a select component.
+    .. attribute:: text_input
+    
+        Represents a text input component.
 
 
 .. class:: ButtonStyle
@@ -2832,6 +2864,23 @@ of :class:`enum.Enum`.
         
         The URL for the library settings.
 
+.. class:: TextInputStyle
+
+    Represents the style of the text input component.
+
+    .. versionadded:: 2.0
+
+    .. attribute:: short
+
+        Represents a single line text input field. This is the default.
+    .. attribute:: long
+    
+        Represents a multi-line text input field.
+    
+    .. attribute:: paragraph
+
+        An alias for :attr:`long`.
+
 Async Iterator
 ----------------
 
@@ -4043,6 +4092,22 @@ Widget
 .. autoclass:: Widget()
     :members:
 
+WelcomeScreen
+~~~~~~~~~~~~~~~
+
+.. attributetable:: WelcomeScreen
+
+.. autoclass:: WelcomeScreen()
+    :members:
+
+WelcomeChannel
+~~~~~~~~~~~~~~~
+
+.. attributetable:: WelcomeChannel
+
+.. autoclass:: WelcomeChannel()
+    :members:
+
 StickerPack
 ~~~~~~~~~~~~~
 
@@ -4400,6 +4465,23 @@ Select
     :inherited-members:
 
 .. autofunction:: discord.ui.select
+
+Modal
+~~~~~~
+
+.. attributetable:: discord.ui.Modal
+
+.. autoclass:: discord.ui.Modal
+    :members:
+
+TextInput
+~~~~~~~~~~
+
+.. attributetable:: discord.ui.TextInput
+
+.. autoclass:: discord.ui.TextInput
+    :members:
+
 
 
 Exceptions

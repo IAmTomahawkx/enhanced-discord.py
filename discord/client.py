@@ -70,7 +70,7 @@ from .object import Object
 from .backoff import ExponentialBackoff
 from .webhook import Webhook
 from .iterators import GuildIterator
-from .appinfo import AppInfo
+from .appinfo import AppInfo, PartialAppInfo
 from .ui.view import View
 from .stage_instance import StageInstance
 from .threads import Thread
@@ -1522,6 +1522,31 @@ class Client:
         if "rpc_origins" not in data:
             data["rpc_origins"] = None
         return AppInfo(self._connection, data)
+
+    async def fetch_application(self, application_id: int, /) -> PartialAppInfo:
+        """|coro|
+
+        Retrieves a :class:`.PartialAppInfo` from an application ID.
+
+        Parameters
+        -----------
+        application_id: :class:`int`
+            The application ID to retrieve information from.
+
+        Raises
+        -------
+        :exc:`.NotFound`
+            An application with this ID does not exist.
+        :exc:`.HTTPException`
+            Retrieving the application failed.
+
+        Returns
+        --------
+        :class:`.PartialAppInfo`
+            The application information.
+        """
+        data = await self.http.get_application(application_id)
+        return PartialAppInfo(state=self._connection, data=data)
 
     async def fetch_user(self, user_id: int, /) -> User:
         """|coro|

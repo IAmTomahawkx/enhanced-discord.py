@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from ..channel import TextChannel
     from ..abc import Snowflake
     from ..ui.view import View
+    from ..message import Attachment
     import datetime
 
 MISSING = utils.MISSING
@@ -141,7 +142,7 @@ class AsyncWebhookAdapter:
                     file.reset(seek=attempt)
 
                 if multipart:
-                    form_data = aiohttp.FormData()
+                    form_data = aiohttp.FormData(quote_fields=False)
                     for p in multipart:
                         form_data.add_field(**p)
                     to_send = form_data
@@ -353,13 +354,19 @@ class AsyncWebhookAdapter:
         session: aiohttp.ClientSession,
         type: int,
         data: Optional[Dict[str, Any]] = None,
+        multipart: Optional[List[Dict[str, Any]]] = None,
+        files: Optional[List[File]] = None,
     ) -> Response[None]:
-        payload: Dict[str, Any] = {
+        payload: Optional[Dict[str, Any]] = {
             "type": type,
         }
 
         if data is not None:
             payload["data"] = data
+
+        # type is send via multipart
+        if multipart:
+            payload = None
 
         route = Route(
             "POST",
@@ -367,8 +374,7 @@ class AsyncWebhookAdapter:
             webhook_id=interaction_id,
             webhook_token=token,
         )
-
-        return self.request(route, session=session, payload=payload)
+        return self.request(route, session=session, payload=payload, multipart=multipart, files=files)
 
     def get_original_interaction_response(
         self,
@@ -423,11 +429,13 @@ class ExecuteWebhookParameters(NamedTuple):
     payload: Optional[Dict[str, Any]]
     multipart: Optional[List[Dict[str, Any]]]
     files: Optional[List[File]]
+    interaction_type: Optional[int]
 
 
 def handle_message_parameters(
     content: Optional[str] = MISSING,
     *,
+    attachments: Optional[List[Attachment]] = MISSING,
     username: str = MISSING,
     avatar_url: Any = MISSING,
     tts: bool = False,
@@ -439,6 +447,7 @@ def handle_message_parameters(
     view: Optional[View] = MISSING,
     allowed_mentions: Optional[AllowedMentions] = MISSING,
     previous_allowed_mentions: Optional[AllowedMentions] = None,
+    interaction_type: int = MISSING,
 ) -> ExecuteWebhookParameters:
     if files is not MISSING and file is not MISSING:
         raise TypeError("Cannot mix file and files keyword arguments.")
@@ -485,35 +494,46 @@ def handle_message_parameters(
     elif previous_allowed_mentions is not None:
         payload["allowed_mentions"] = previous_allowed_mentions.to_dict()
 
+    if attachments is not MISSING:
+        if attachments is not None:
+            payload["attachments"] = [a.to_dict() for a in attachments]
+        else:
+            payload["attachments"] = []
+
     multipart = []
     if file is not MISSING:
         files = [file]
 
     if files:
-        multipart.append({"name": "payload_json", "value": utils._to_json(payload)})
-        payload = None
-        if len(files) == 1:
-            file = files[0]
+        _attachments: List[Dict[str, Any]] = payload.get("attachments", [])
+
+        for index, file in enumerate(files):
+            to_append: Dict[str, Any] = {"id": index, "filename": file.filename}
+            if file.description is not None:
+                to_append["description"] = file.description
+
+            _attachments.append(to_append)
             multipart.append(
                 {
-                    "name": "file",
+                    "name": f"files[{index}]",
                     "value": file.fp,
                     "filename": file.filename,
                     "content_type": "application/octet-stream",
                 }
             )
-        else:
-            for index, file in enumerate(files):
-                multipart.append(
-                    {
-                        "name": f"file{index}",
-                        "value": file.fp,
-                        "filename": file.filename,
-                        "content_type": "application/octet-stream",
-                    }
-                )
 
-    return ExecuteWebhookParameters(payload=payload, multipart=multipart, files=files)
+        payload["attachments"] = _attachments
+
+        # for interaction responses.
+        if interaction_type is not MISSING:
+            payload = {"type": interaction_type, "data": payload}
+
+        multipart.append({"name": "payload_json", "value": utils._to_json(payload)})
+        payload = None
+
+    return ExecuteWebhookParameters(
+        payload=payload, multipart=multipart, files=files, interaction_type=interaction_type
+    )
 
 
 async_context: ContextVar[AsyncWebhookAdapter] = ContextVar("async_webhook_context", default=AsyncWebhookAdapter())
@@ -644,13 +664,15 @@ class WebhookMessage(Message):
 
     async def edit(
         self,
+        allowed_mentions: Optional[AllowedMentions] = None,
+        attachments: List[Attachment] = MISSING,
         content: Optional[str] = MISSING,
         embeds: List[Embed] = MISSING,
         embed: Optional[Embed] = MISSING,
+        delete_after: Optional[float] = None,
         file: File = MISSING,
         files: List[File] = MISSING,
         view: Optional[View] = MISSING,
-        allowed_mentions: Optional[AllowedMentions] = None,
     ) -> WebhookMessage:
         """|coro|
 
@@ -663,6 +685,14 @@ class WebhookMessage(Message):
 
         Parameters
         ------------
+        allowed_mentions: Optional[:class:`AllowedMentions`]
+            Controls the mentions being processed in this message.
+            See :meth:`.abc.Messageable.send` for more information.
+        attachments: List[:class:`Attachment`]
+            A list of attachments to keep in the message. If ``[]`` is passed
+            then all attachments are removed.
+
+            .. versionadded:: 2.0
         content: Optional[:class:`str`]
             The content to edit the message with or ``None`` to clear it.
         embeds: List[:class:`Embed`]
@@ -670,6 +700,10 @@ class WebhookMessage(Message):
         embed: Optional[:class:`Embed`]
             The embed to edit the message with. ``None`` suppresses the embeds.
             This should not be mixed with the ``embeds`` parameter.
+        delete_after: Optional[:class:`float`]
+            If provided, the number of seconds to wait in the background
+            before deleting the message we just edited. If the deletion fails,
+            then it is silently ignored.
         file: :class:`File`
             The file to upload. This cannot be mixed with ``files`` parameter.
 
@@ -679,9 +713,7 @@ class WebhookMessage(Message):
             ``file`` parameter.
 
             .. versionadded:: 2.0
-        allowed_mentions: :class:`AllowedMentions`
-            Controls the mentions being processed in this message.
-            See :meth:`.abc.Messageable.send` for more information.
+
         view: Optional[:class:`~discord.ui.View`]
             The updated view to update this message with. If ``None`` is passed then
             the view is removed.
@@ -708,9 +740,11 @@ class WebhookMessage(Message):
         """
         return await self._state._webhook.edit_message(
             self.id,
+            attachments=attachments,
             content=content,
             embeds=embeds,
             embed=embed,
+            delete_after=delete_after,
             file=file,
             files=files,
             view=view,
@@ -737,19 +771,7 @@ class WebhookMessage(Message):
         HTTPException
             Deleting the message failed.
         """
-
-        if delay is not None:
-
-            async def inner_call(delay: float = delay):
-                await asyncio.sleep(delay)
-                try:
-                    await self._state._webhook.delete_message(self.id)
-                except HTTPException:
-                    pass
-
-            asyncio.create_task(inner_call())
-        else:
-            await self._state._webhook.delete_message(self.id)
+        await self._state._webhook.delete_message(self.id, delay=delay)
 
 
 class BaseWebhook(Hashable):
@@ -1231,7 +1253,7 @@ class Webhook(BaseWebhook):
         view: View = MISSING,
         thread: Snowflake = MISSING,
         wait: Literal[True],
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> WebhookMessage:
         ...
 
@@ -1252,7 +1274,7 @@ class Webhook(BaseWebhook):
         view: View = MISSING,
         thread: Snowflake = MISSING,
         wait: Literal[False] = ...,
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> None:
         ...
 
@@ -1272,7 +1294,7 @@ class Webhook(BaseWebhook):
         view: View = MISSING,
         thread: Snowflake = MISSING,
         wait: bool = False,
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> Optional[WebhookMessage]:
         """|coro|
 
@@ -1323,6 +1345,10 @@ class Webhook(BaseWebhook):
         embeds: List[:class:`Embed`]
             A list of embeds to send with the content. Maximum of 10. This cannot
             be mixed with the ``embed`` parameter.
+        delete_after: Optional[:class:`float`]
+            If provided, the number of seconds to wait in the background
+            before deleting the message we just sent. If the deletion fails,
+            then it is silently ignored.
         allowed_mentions: :class:`AllowedMentions`
             Controls the mentions being processed in this message.
 
@@ -1338,10 +1364,6 @@ class Webhook(BaseWebhook):
             The thread to send this webhook to.
 
             .. versionadded:: 2.0
-        delete_after: :class:`float`
-            If provided, the number of seconds to wait in the background
-            before deleting the message we just sent. If the deletion fails,
-            then it is silently ignored.
 
         Raises
         --------
@@ -1400,12 +1422,13 @@ class Webhook(BaseWebhook):
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
         )
+
         adapter = async_context.get()
         thread_id: Optional[int] = None
         if thread is not MISSING:
             thread_id = thread.id
 
-        if delete_after is not MISSING:
+        if delete_after is not None:
             wait = True
 
         data = await adapter.execute_webhook(
@@ -1427,8 +1450,8 @@ class Webhook(BaseWebhook):
             message_id = None if msg is None else msg.id
             self._state.store_view(view, message_id)
 
-        if delete_after is not MISSING:
-            await msg.delete(delay=delete_after)
+        if delete_after is not None:
+            await msg.delete(delay=delete_after)  # type: ignore
 
         return msg
 
@@ -1477,9 +1500,11 @@ class Webhook(BaseWebhook):
         self,
         message_id: int,
         *,
+        attachments: List[Attachment] = MISSING,
         content: Optional[str] = MISSING,
         embeds: List[Embed] = MISSING,
         embed: Optional[Embed] = MISSING,
+        delete_after: Optional[float] = None,
         file: File = MISSING,
         files: List[File] = MISSING,
         view: Optional[View] = MISSING,
@@ -1499,8 +1524,14 @@ class Webhook(BaseWebhook):
 
         Parameters
         ------------
+
         message_id: :class:`int`
             The message ID to edit.
+        attachments: List[:class:`Attachment`]
+            A list of attachments to keep in the message. If ``[]`` is passed
+            then all attachments are removed.
+
+            .. versionadded:: 2.0
         content: Optional[:class:`str`]
             The content to edit the message with or ``None`` to clear it.
         embeds: List[:class:`Embed`]
@@ -1508,6 +1539,10 @@ class Webhook(BaseWebhook):
         embed: Optional[:class:`Embed`]
             The embed to edit the message with. ``None`` suppresses the embeds.
             This should not be mixed with the ``embeds`` parameter.
+        delete_after: Optional[:class:`float`
+            If provided, the number of seconds to wait in the background
+            before deleting the message we just edited. If the deletion fails,
+            then it is silently ignored.
         file: :class:`File`
             The file to upload. This cannot be mixed with ``files`` parameter.
 
@@ -1558,6 +1593,7 @@ class Webhook(BaseWebhook):
 
         previous_mentions: Optional[AllowedMentions] = getattr(self._state, "allowed_mentions", None)
         params = handle_message_parameters(
+            attachments=attachments,
             content=content,
             file=file,
             files=files,
@@ -1581,9 +1617,13 @@ class Webhook(BaseWebhook):
         message = self._create_message(data)
         if view and not view.is_finished():
             self._state.store_view(view, message_id)
+
+        if delete_after is not None and message.flags.ephemeral is False:
+            await message.delete(delay=delete_after)
+
         return message
 
-    async def delete_message(self, message_id: int, /) -> None:
+    async def delete_message(self, message_id: int, /, *, delay: Optional[float] = None) -> None:
         """|coro|
 
         Deletes a message owned by this webhook.
@@ -1597,6 +1637,11 @@ class Webhook(BaseWebhook):
         ------------
         message_id: :class:`int`
             The message ID to delete.
+        delay: Optional[:class:`float`]
+            If provided, the number of seconds to wait before deleting the message.
+            The waiting is done in the background and deletion failures are ignored.
+
+            .. versionadded:: 2.0
 
         Raises
         -------
@@ -1609,9 +1654,22 @@ class Webhook(BaseWebhook):
             raise InvalidArgument("This webhook does not have a token associated with it")
 
         adapter = async_context.get()
-        await adapter.delete_webhook_message(
+        to_call = adapter.delete_webhook_message(
             self.id,
             self.token,
             message_id,
             session=self.session,
         )
+
+        if delay is not None:
+
+            async def inner_call(delay: float = delay):
+                await asyncio.sleep(delay)
+                try:
+                    await to_call
+                except HTTPException:
+                    pass
+
+            asyncio.create_task(inner_call())
+        else:
+            await to_call

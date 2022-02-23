@@ -288,7 +288,7 @@ class View:
         self.children.clear()
         self.__weights.clear()
 
-    async def interaction_check(self, interaction: Interaction) -> bool:
+    async def interaction_check(self, item: Item, interaction: Interaction) -> bool:
         """|coro|
 
         A callback that is called when an interaction happens within the view
@@ -306,6 +306,8 @@ class View:
 
         Parameters
         -----------
+        item: :class:`Item`
+            The item that was interacted with.
         interaction: :class:`~discord.Interaction`
             The interaction that occurred.
 
@@ -348,7 +350,7 @@ class View:
             if self.timeout:
                 self.__timeout_expiry = time.monotonic() + self.timeout
 
-            allow = await self.interaction_check(interaction)
+            allow = await self.interaction_check(item, interaction)
             if not allow:
                 return
 

@@ -165,11 +165,7 @@ class PartialEmoji(_EmojiTag, AssetMixin):
         return self
 
     def __str__(self) -> str:
-        if self.id is None:
-            return self.name
-        if self.animated:
-            return f"<a:{self.name}:{self.id}>"
-        return f"<:{self.name}:{self.id}>"
+        return self.mention
 
     def __repr__(self):
         return f"<{self.__class__.__name__} animated={self.animated} name={self.name!r} id={self.id}>"
@@ -223,6 +219,17 @@ class PartialEmoji(_EmojiTag, AssetMixin):
 
         fmt = "gif" if self.animated else "png"
         return f"{Asset.BASE}/emojis/{self.id}.{fmt}"
+
+    @property
+    def mention(self) -> str:
+        """:class:`str`: Returns the emoji rendered for discord. This is the name if :attr:`.id` is ``None``.
+
+        .. versionadded:: 2.0
+        """
+        if self.id is None:
+            return self.name
+
+        return f"<{'a' if self.animated else ''}:{self.name}:{self.id}>"
 
     async def read(self) -> bytes:
         if self.is_unicode_emoji():

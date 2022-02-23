@@ -60,6 +60,7 @@ from .stage_instance import *
 from .interactions import *
 from .components import *
 from .threads import *
+from .welcome_screen import *
 
 
 class VersionInfo(NamedTuple):
@@ -73,3 +74,15 @@ class VersionInfo(NamedTuple):
 version_info: VersionInfo = VersionInfo(major=2, minor=0, micro=0, releaselevel="alpha", serial=0)
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+try:
+    import discord_components
+
+    raise RuntimeError(
+        "package `discord_components` appears to be installed. This library is incompatible with Enhanced-discord.py, "
+        "Please use the built in Views.\n"
+        "Documentation can be found here: https://enhanced-dpy.readthedocs.io/en/latest/api.html#bot-ui-kit\n"
+        "Examples can be found here: https://github.com/iDevision/enhanced-discord.py/tree/2.0/examples/views"
+    )
+except ImportError:
+    pass

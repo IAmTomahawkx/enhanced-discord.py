@@ -473,11 +473,7 @@ class Context(discord.abc.Messageable, Generic[BotT]):
         kwargs.pop("reference", None)
         kwargs.pop("mention_author", None)
 
-        if not (
-            return_message
-            or self.interaction.response.is_done()
-            or any(arg in kwargs for arg in ("file", "files", "allowed_mentions"))
-        ):
+        if not (return_message or self.interaction.response.is_done()):
             send = self.interaction.response.send_message
         else:
             # We have to defer in order to use the followup webhook
