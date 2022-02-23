@@ -299,33 +299,21 @@ class BotBase(GroupMixin):
             if guilds is None:
                 commands[None].append(payload)
             else:
+                self._application_command_store.add_command(payload, BotBase.process_slash_commands, guild_ids=guilds)  # type: ignore
                 for guild in guilds:
                     commands[guild].append(payload)
 
-        http: HTTPClient = self.http  # type: ignore
         global_commands = commands.pop(None, None)
-        application_id = self.application_id or (await self.application_info()).id  # type: ignore
         if global_commands is not None:
             if self.slash_command_guilds is None:
-                await http.bulk_upsert_global_commands(
-                    payload=global_commands,
-                    application_id=application_id,
-                )
+                for global_command in global_commands:
+                    self._application_command_store.add_command(global_command, BotBase.process_slash_commands, guild_ids=None)  # type: ignore
             else:
-                for guild in self.slash_command_guilds:
-                    await http.bulk_upsert_guild_commands(
-                        guild_id=guild,
-                        payload=global_commands,
-                        application_id=application_id,
-                    )
-
-        for guild, guild_commands in commands.items():
-            assert guild is not None
-            await http.bulk_upsert_guild_commands(
-                guild_id=guild,
-                payload=guild_commands,
-                application_id=application_id,
-            )
+                for global_command in global_commands:
+                    self._application_command_store.add_command(global_command, BotBase.process_slash_commands, guild_ids=self.slash_command_guilds)  # type: ignore
+        
+        await self.upload_guild_application_commands()  # type: ignore
+        await self.upload_global_application_commands()  # type: ignore
 
     @discord.utils.copy_doc(discord.Client.close)
     async def close(self) -> None:
@@ -1251,7 +1239,7 @@ class BotBase(GroupMixin):
         ctx = await self.get_context(message)
         await self.invoke(ctx)
 
-    async def process_slash_commands(self, interaction: discord.Interaction):
+    async def process_slash_commands(self, interaction: discord.Interaction, _command_payload=None):
         """|coro|
 
         This function processes a slash command interaction into a usable
@@ -1335,10 +1323,6 @@ class BotBase(GroupMixin):
 
     async def on_message(self, message):
         await self.process_commands(message)
-
-    async def on_interaction(self, interaction: discord.Interaction):
-        await discord.Client.on_interaction(self, interaction)  # type: ignore
-        await self.process_slash_commands(interaction)
 
 
 class Bot(BotBase, discord.Client):

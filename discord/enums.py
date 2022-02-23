@@ -57,6 +57,7 @@ __all__ = (
     "ApplicationCommandType",
     "NSFWLevel",
     "ProtocolURL",
+    "TextInputStyle",
 )
 
 
@@ -212,9 +213,10 @@ class MessageType(Enum):
     guild_discovery_grace_period_final_warning = 17
     thread_created = 18
     reply = 19
-    application_command = 20
+    chat_input_command = 20
     thread_starter_message = 21
     guild_invite_reminder = 22
+    context_menu_command = 23
 
 
 class VoiceRegion(Enum):
@@ -452,6 +454,7 @@ class UserFlags(Enum):
     partner = 2
     hypesquad = 4
     bug_hunter = 8
+    bug_hunter_level_1 = 8
     mfa_sms = 16
     premium_promo_dismissed = 32
     hypesquad_bravery = 64
@@ -465,6 +468,8 @@ class UserFlags(Enum):
     verified_bot = 65536
     verified_bot_developer = 131072
     discord_certified_moderator = 262144
+    bot_http_interactions = 524288
+    spammer = 1048576
 
 
 class ActivityType(Enum):
@@ -532,6 +537,7 @@ class InteractionType(Enum):
     application_command = 2
     component = 3
     application_command_autocomplete = 4
+    modal_submit = 5
 
 
 class ApplicationCommandType(Enum):
@@ -549,6 +555,7 @@ class InteractionResponseType(Enum):
     deferred_message_update = 6  # for components
     message_update = 7  # for components
     application_command_autocomplete_result = 8
+    modal = 9  # forms
 
 
 class VideoQualityMode(Enum):
@@ -563,6 +570,7 @@ class ComponentType(Enum):
     action_row = 1
     button = 2
     select = 3
+    input_text = 4
 
     def __int__(self):
         return self.value
@@ -666,6 +674,15 @@ class ProtocolURL(Enum):
 
     def format(self, **kwargs: Any) -> str:
         return self.value.format(**kwargs)
+
+
+class TextInputStyle(Enum):
+
+    short = 1
+    long = 2
+
+    # Aliases
+    paragraph = 2
 
 
 T = TypeVar("T")

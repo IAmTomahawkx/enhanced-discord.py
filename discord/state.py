@@ -55,6 +55,7 @@ from .invite import Invite
 from .integrations import _integration_factory
 from .interactions import Interaction
 from .ui.view import ViewStore, View
+from .ui.modal import ModalStore, Modal
 from .stage_instance import StageInstance
 from .threads import Thread, ThreadMember
 from .sticker import GuildSticker
@@ -250,6 +251,7 @@ class ConnectionState:
         self._emojis: Dict[int, Emoji] = {}
         self._stickers: Dict[int, GuildSticker] = {}
         self._guilds: Dict[int, Guild] = {}
+        self._modal_store: ModalStore = ModalStore(self)
         if views:
             self._view_store: ViewStore = ViewStore(self)
 
@@ -363,6 +365,9 @@ class ConnectionState:
 
     def prevent_view_updates_for(self, message_id: int) -> Optional[View]:
         return self._view_store.remove_message_tracking(message_id)
+
+    def store_modal(self, modal: Modal, user_id: int) -> None:
+        self._modal_store.add_modal(modal, user_id)
 
     @property
     def persistent_views(self) -> Sequence[View]:
@@ -707,7 +712,9 @@ class ConnectionState:
             custom_id = interaction.data["custom_id"]  # type: ignore
             component_type = interaction.data["component_type"]  # type: ignore
             self._view_store.dispatch(component_type, custom_id, interaction)
-
+        if data["type"] == 5:  # modal submit
+            user_id, custom_id = (interaction.user.id, interaction.data["custom_id"])  # type: ignore
+            self._modal_store.dispatch(user_id, custom_id, interaction)
         self.dispatch("interaction", interaction)
 
     def parse_presence_update(self, data) -> None:

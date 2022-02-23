@@ -24,7 +24,7 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import Any, Callable, ClassVar, Dict, Generic, Iterator, List, Optional, Tuple, Type, TypeVar, overload
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, overload
 
 from .enums import UserFlags
 
@@ -82,7 +82,7 @@ def fill_with_flags(*, inverted: bool = False):
 
         if inverted:
             max_bits = max(cls.VALID_FLAGS.values()).bit_length()
-            cls.DEFAULT_VALUE = -1 + (2 ** max_bits)
+            cls.DEFAULT_VALUE = -1 + (2**max_bits)
         else:
             cls.DEFAULT_VALUE = 0
 
@@ -216,6 +216,14 @@ class SystemChannelFlags(BaseFlags):
         """
         return 4
 
+    @flag_value
+    def join_notification_replies(self):
+        """:class:`bool`: Returns ``True`` if members are prompted to reply to join notifications with a sticker.
+
+        .. versionadded:: 2.0
+        """
+        return 8
+
 
 @fill_with_flags()
 class MessageFlags(BaseFlags):
@@ -295,6 +303,22 @@ class MessageFlags(BaseFlags):
         """
         return 64
 
+    @flag_value
+    def loading(self):
+        """:class:`bool`: Returns ``True`` if the source message is an interaction response and the bot is "thinking".
+
+        .. versionadded:: 2.0
+        """
+        return 128
+
+    @flag_value
+    def failed_to_mention_some_roles_in_thread(self):
+        """:class:`bool`: Returns ``True`` if the source message failed to mention some roles and add their members to the thread.
+
+        .. versionadded:: 2.0
+        """
+        return 256
+
 
 @fill_with_flags()
 class PublicUserFlags(BaseFlags):
@@ -346,8 +370,13 @@ class PublicUserFlags(BaseFlags):
 
     @flag_value
     def bug_hunter(self):
-        """:class:`bool`: Returns ``True`` if the user is a Bug Hunter"""
+        """:class:`bool`: Returns ``True`` if the user is a level 1 Bug Hunter"""
         return UserFlags.bug_hunter.value
+
+    @alias_flag_value
+    def bug_hunter_level_1(self):
+        """:class:`bool`: Alias of :attr:`bug_hunter`."""
+        return UserFlags.bug_hunter_level_1.value
 
     @flag_value
     def hypesquad_bravery(self):
@@ -409,6 +438,22 @@ class PublicUserFlags(BaseFlags):
         .. versionadded:: 2.0
         """
         return UserFlags.discord_certified_moderator.value
+
+    @flag_value
+    def bot_http_interactions(self):
+        """:class:`bool`: Returns ``True`` if the bot doesn't connect to the gateway but should still be shown as online.
+
+        .. versionadded:: 2.0
+        """
+        return UserFlags.bot_http_interactions.value
+
+    @flag_value
+    def spammer(self):
+        """:class:`bool`: Returns ``True`` if the user is marked as a spammer.
+
+        .. versionadded:: 2.0
+        """
+        return UserFlags.spammer.value
 
     def all(self) -> List[UserFlags]:
         """List[:class:`UserFlags`]: Returns all public flags the user has."""
@@ -1024,26 +1069,92 @@ class ApplicationFlags(BaseFlags):
         """
         return 1 << 12
 
+    @alias_flag_value
+    def presence(self):
+        """:class:`bool`: Alias for :attr:`gateway_presence`.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 12
+
     @flag_value
     def gateway_presence_limited(self):
-        """:class:`bool`: Returns ``True`` if the application is allowed to receive limited
-        presence information over the gateway.
+        """:class:`bool`: Returns ``True`` if the application is allowed to receive
+        presence information over the gateway but is not whitelisted.
+        """
+        return 1 << 13
+
+    @alias_flag_value
+    def presence_limited(self):
+        """:class:`bool`: Alias for :attr:`gateway_presence_limited`.
+
+        .. versionadded:: 2.0
         """
         return 1 << 13
 
     @flag_value
     def gateway_guild_members(self):
         """:class:`bool`: Returns ``True`` if the application is verified and is allowed to
-        receive guild members information over the gateway.
+        receive full guild member lists.
+        """
+        return 1 << 14
+
+    @alias_flag_value
+    def guild_members(self):
+        """:class:`bool`: Alias for :attr:`gateway_guild_members`.
+
+        .. versionadded:: 2.0
         """
         return 1 << 14
 
     @flag_value
     def gateway_guild_members_limited(self):
-        """:class:`bool`: Returns ``True`` if the application is allowed to receive limited
-        guild members information over the gateway.
+        """:class:`bool`: Returns ``True`` if the application is allowed to receive full
+        guild member lists but is not whitelisted.
         """
         return 1 << 15
+
+    @alias_flag_value
+    def guild_members_limited(self):
+        """:class:`bool`: Alias for :attr:`gateway_guild_members_limited`.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 15
+
+    @flag_value
+    def gateway_message_content(self):
+        """:class:`bool`: Returns ``True`` if the application is verified and is allowed to
+        receive message content.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 18
+
+    @alias_flag_value
+    def message_content(self):
+        """:class:`bool`: Alias for :attr:`gateway_message_content`.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 18
+
+    @flag_value
+    def gateway_message_content_limited(self):
+        """:class:`bool`: Returns ``True`` if the application is allowed to receive
+        message content but is not whitelisted.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 19
+
+    @alias_flag_value
+    def message_content_limited(self):
+        """:class:`bool`: Alias for :attr:`gateway_message_content_limited`.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 19
 
     @flag_value
     def verification_pending_guild_limit(self):
@@ -1056,3 +1167,19 @@ class ApplicationFlags(BaseFlags):
     def embedded(self):
         """:class:`bool`: Returns ``True`` if the application is embedded within the Discord client."""
         return 1 << 17
+
+    @flag_value
+    def embedded_first_party(self):
+        """:class:`bool`: Returns ``True`` if the embedded application is published by Discord.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 20
+
+    @flag_value
+    def embedded_released(self):
+        """:class:`bool`: Returns ``True`` if the embedded application is released to the public.
+
+        .. versionadded:: 2.0
+        """
+        return 1 << 1

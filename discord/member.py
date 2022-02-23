@@ -29,7 +29,7 @@ import inspect
 import itertools
 import sys
 from operator import attrgetter
-from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING, Set, Tuple, Type, TypeVar, Union, overload
 
 import discord.abc
 
@@ -945,3 +945,57 @@ class Member(discord.abc.Messageable, _UserTag):
             The role or ``None`` if not found in the member's roles.
         """
         return self.guild.get_role(role_id) if self._roles.has(role_id) else None
+
+    async def upgrade(self, **options: Any) -> Union[Member, BaseUser, User]:
+        """|coro|
+
+        Upgrades the member if possible. This works by re-fetching the user/member, or performing other such API calls.
+
+        +-------------+----------------+-------------------------------------------------------------------------------------------------------------------+
+        | Name        | Type           | Description                                                                                                       |
+        +=============+================+===================================================================================================================+
+        | banner      | :class:`bool`  | This sets :attr:`banner` and :attr:`accent_colour` attributes to the current banner or colour, if any.            |
+        +-------------+----------------+-------------------------------------------------------------------------------------------------------------------+
+        | presences   | :class:`bool`  | This sets the following attributes, :attr:`.activities` and :attr:`.status`.                                      |
+        +-------------+----------------+-------------------------------------------------------------------------------------------------------------------+
+
+        Parameters
+        -----------
+        **options:
+          The attributes to upgrade. Refer to above for a list of possible options.
+
+        Raises
+        -------
+        asyncio.TimeoutError
+            The query timed out waiting for the members.
+        ClientException
+            The presences intent is not enabled.
+        Forbidden
+            You do not have access to the guild.
+        HTTPException
+            Fetching the member failed.
+        NotFound
+            A member with that ID does not exist.
+
+        Returns
+        -------
+        :class:`Member`
+            The upgraded version of the member.
+        """
+        create_new_obj: Set = {"banner"}
+        for key in options.copy():
+            if getattr(self, key, None) is not None:
+                del options[key]
+
+        member = self
+        user: Union[BaseUser, User, Member] = await self._user.upgrade(**options)
+        if any(create_new_obj.intersection(options.keys())):
+            new_data = await self._state.http.get_member(self.guild.id, self.id)
+            member = Member(data=new_data, guild=self.guild, state=self._state)
+
+        if "presences" in options:
+            members: List[Member] = await self.guild.query_members(limit=1, user_ids=[self.id], presences=True)
+            member = members[0]
+
+        member._user = user  # type: ignore
+        return member

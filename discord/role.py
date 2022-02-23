@@ -142,10 +142,6 @@ class Role(Hashable):
 
             Returns the role's name.
 
-        .. describe:: str(x)
-
-            Returns the role's ID.
-
         .. describe:: int(x)
 
             Returns the role's ID.

@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from ..file import File
     from ..embeds import Embed
     from ..mentions import AllowedMentions
+    from ..message import Attachment
     from ..types.webhook import (
         Webhook as WebhookPayload,
     )
@@ -381,7 +382,9 @@ class SyncWebhookMessage(Message):
 
     def edit(
         self,
+        attachments: List[Attachment] = MISSING,
         content: Optional[str] = MISSING,
+        delete_after: Optional[float] = None,
         embeds: List[Embed] = MISSING,
         embed: Optional[Embed] = MISSING,
         file: File = MISSING,
@@ -392,8 +395,19 @@ class SyncWebhookMessage(Message):
 
         Parameters
         ------------
+        attachments: List[:class:`Attachment`]
+            A list of attachments to keep in the message. If ``[]`` is passed
+            then all attachments are removed.
+
+            .. versionadded:: 2.0
         content: Optional[:class:`str`]
             The content to edit the message with or ``None`` to clear it.
+        delete_after: Optional[:class:`float`]
+            If provided, the number of seconds to wait in the background
+            before deleting the message we just edited. If the deletion fails,
+            then it is silently ignored.
+
+            .. versionadded:: 2.0
         embeds: List[:class:`Embed`]
             A list of embeds to edit the message with.
         embed: Optional[:class:`Embed`]
@@ -428,7 +442,9 @@ class SyncWebhookMessage(Message):
         """
         return self._state._webhook.edit_message(
             self.id,
+            attachments=attachments,
             content=content,
+            delete_after=delete_after,
             embeds=embeds,
             embed=embed,
             file=file,
@@ -454,10 +470,7 @@ class SyncWebhookMessage(Message):
         HTTPException
             Deleting the message failed.
         """
-
-        if delay is not None:
-            time.sleep(delay)
-        self._state._webhook.delete_message(self.id)
+        self._state._webhook.delete_message(self.id, delay=delay)
 
 
 class SyncWebhook(BaseWebhook):
@@ -790,7 +803,7 @@ class SyncWebhook(BaseWebhook):
         embeds: List[Embed] = MISSING,
         allowed_mentions: AllowedMentions = MISSING,
         wait: Literal[True],
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> SyncWebhookMessage:
         ...
 
@@ -808,7 +821,7 @@ class SyncWebhook(BaseWebhook):
         embeds: List[Embed] = MISSING,
         allowed_mentions: AllowedMentions = MISSING,
         wait: Literal[False] = ...,
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> None:
         ...
 
@@ -826,7 +839,7 @@ class SyncWebhook(BaseWebhook):
         allowed_mentions: AllowedMentions = MISSING,
         thread: Snowflake = MISSING,
         wait: bool = False,
-        delete_after: float = MISSING,
+        delete_after: Optional[float] = None,
     ) -> Optional[SyncWebhookMessage]:
         """Sends a message using the webhook.
 
@@ -875,7 +888,7 @@ class SyncWebhook(BaseWebhook):
             The thread to send this message to.
 
             .. versionadded:: 2.0
-        delete_after: :class:`float`
+        delete_after: Optional[:class:`float`]
             If provided, the number of seconds to wait in the background
             before deleting the message we just sent. If the deletion fails,
             then it is silently ignored.
@@ -925,7 +938,7 @@ class SyncWebhook(BaseWebhook):
         if thread is not MISSING:
             thread_id = thread.id
 
-        if delete_after is not MISSING:
+        if delete_after is not None:
             wait = True
 
         data = adapter.execute_webhook(
@@ -939,12 +952,12 @@ class SyncWebhook(BaseWebhook):
             wait=wait,
         )
 
-        msg = self._create_message(data) if wait else None
+        message = self._create_message(data) if wait else None
 
-        if delete_after is not MISSING:
-            msg.delete(delay=delete_after)
+        if delete_after is not None:
+            message.delete(delay=delete_after)  # type: ignore
 
-        return msg
+        return message
 
     def fetch_message(self, id: int, /) -> SyncWebhookMessage:
         """Retrieves a single :class:`~discord.SyncWebhookMessage` owned by this webhook.
@@ -989,7 +1002,9 @@ class SyncWebhook(BaseWebhook):
         self,
         message_id: int,
         *,
+        attachments: List[Attachment] = MISSING,
         content: Optional[str] = MISSING,
+        delete_after: Optional[float] = None,
         embeds: List[Embed] = MISSING,
         embed: Optional[Embed] = MISSING,
         file: File = MISSING,
@@ -1007,8 +1022,20 @@ class SyncWebhook(BaseWebhook):
         ------------
         message_id: :class:`int`
             The message ID to edit.
+
+        attachments: List[:class:`Attachment`]
+            A list of attachments to keep in the message. If ``[]`` is passed
+            then all attachments are removed.
+
+            .. versionadded:: 2.0
         content: Optional[:class:`str`]
             The content to edit the message with or ``None`` to clear it.
+        delete_after: Optional[:class:`float`]
+            If provided, the number of seconds to wait in the background
+            before deleting the message we just edited. If the deletion fails,
+            then it is silently ignored.
+
+            .. versionadded:: 2.0
         embeds: List[:class:`Embed`]
             A list of embeds to edit the message with.
         embed: Optional[:class:`Embed`]
@@ -1042,6 +1069,7 @@ class SyncWebhook(BaseWebhook):
 
         previous_mentions: Optional[AllowedMentions] = getattr(self._state, "allowed_mentions", None)
         params = handle_message_parameters(
+            attachments=attachments,
             content=content,
             file=file,
             files=files,
@@ -1060,9 +1088,15 @@ class SyncWebhook(BaseWebhook):
             multipart=params.multipart,
             files=params.files,
         )
-        return self._create_message(data)
 
-    def delete_message(self, message_id: int, /) -> None:
+        message = self._create_message(data)
+
+        if delete_after is not None:
+            message.delete(delay=delete_after)
+
+        return message
+
+    def delete_message(self, message_id: int, /, *, delay: Optional[float] = None) -> None:
         """Deletes a message owned by this webhook.
 
         This is a lower level interface to :meth:`WebhookMessage.delete` in case
@@ -1074,6 +1108,11 @@ class SyncWebhook(BaseWebhook):
         ------------
         message_id: :class:`int`
             The message ID to delete.
+        delay: Optional[:class:`float`]
+            If provided, the number of seconds to wait before deleting the message.
+            The waiting is done in the background and deletion failures are ignored.
+
+            .. versionadded:: 2.0
 
         Raises
         -------
@@ -1086,6 +1125,10 @@ class SyncWebhook(BaseWebhook):
             raise InvalidArgument("This webhook does not have a token associated with it")
 
         adapter: WebhookAdapter = _get_webhook_adapter()
+
+        if delay is not None:
+            time.sleep(delay)
+
         adapter.delete_webhook_message(
             self.id,
             self.token,

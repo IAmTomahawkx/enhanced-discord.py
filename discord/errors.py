@@ -52,6 +52,11 @@ __all__ = (
     "ConnectionClosed",
     "PrivilegedIntentsRequired",
     "InteractionResponded",
+    "MinMaxTypeError",
+    "ArgumentMismatchError",
+    "AutoCompleteResponseFormattingError",
+    "ApplicationCommandCheckFailure",
+    "ApplicationCommandNotFound",
 )
 
 
@@ -275,3 +280,51 @@ class InteractionResponded(ClientException):
     def __init__(self, interaction: Interaction):
         self.interaction: Interaction = interaction
         super().__init__("This interaction has already been responded to before")
+
+
+class MinMaxTypeError(DiscordException):
+    """Exception that's raised when the `min` or `max` arguments are set on an Application Command argument,
+    but the type of the argument is not an :class:`int` or :class:`float`
+
+    .. versionadded:: 2.0
+    """
+
+    def __init__(self, argument: str, type_: type):
+        super().__init__(f"Argument '{argument}' of type {type_!r} cannot have a min and/or max value")
+
+
+class ArgumentMismatchError(DiscordException):
+    """Exception that's raised when improper arguments are requested for User commands or Message commands
+
+    .. versionadded:: 2.0
+    """
+
+    pass
+
+
+class AutoCompleteResponseFormattingError(DiscordException):
+    """Exception that's raised when the object returned from the autocomplete callback cannot be formatted into an autocomplete response
+
+    .. versionadded:: 2.0
+    """
+
+    pass
+
+
+class ApplicationCommandCheckFailure(DiscordException):
+    """Exception that's raised when the check or pre_check functions do not return a ``True`` value
+
+
+    .. versionadded:: 2.0
+    """
+
+    pass
+
+
+class ApplicationCommandNotFound(DiscordException):
+    """Exception that's raised when the given command is not found
+
+    .. versionadded:: 2.0
+    """
+
+    pass

@@ -31,6 +31,7 @@ from .object import Object
 from .mixins import Hashable
 from .enums import ChannelType, VerificationLevel, InviteTarget, try_enum
 from .appinfo import PartialAppInfo
+from .welcome_screen import WelcomeScreen
 
 __all__ = (
     "PartialInviteChannel",
@@ -305,6 +306,11 @@ class Invite(Hashable):
         The embedded application the invite targets, if any.
 
         .. versionadded:: 2.0
+
+    welcome_screen: Optional[:class:`WelcomeScreen`]
+        The guild's welcome screen, if available.
+
+        .. versionadded:: 2.0
     """
 
     __slots__ = (
@@ -325,6 +331,7 @@ class Invite(Hashable):
         "approximate_presence_count",
         "target_application",
         "expires_at",
+        "welcome_screen",
     )
 
     BASE = "https://discord.gg"
@@ -336,6 +343,7 @@ class Invite(Hashable):
         data: InvitePayload,
         guild: Optional[Union[PartialInviteGuild, Guild]] = None,
         channel: Optional[Union[PartialInviteChannel, GuildChannel]] = None,
+        welcome_screen: Optional[WelcomeScreen] = None,
     ):
         self._state: ConnectionState = state
         self.max_age: Optional[int] = data.get("max_age")
@@ -368,6 +376,7 @@ class Invite(Hashable):
         self.target_application: Optional[PartialAppInfo] = (
             PartialAppInfo(data=application, state=state) if application else None
         )
+        self.welcome_screen = welcome_screen
 
     @classmethod
     def from_incomplete(cls: Type[I], *, state: ConnectionState, data: InvitePayload) -> I:
@@ -377,12 +386,17 @@ class Invite(Hashable):
         except KeyError:
             # If we're here, then this is a group DM
             guild = None
+            welcome_screen = None
         else:
             guild_id = int(guild_data["id"])
             guild = state._get_guild(guild_id)
             if guild is None:
                 # If it's not cached, then it has to be a partial guild
                 guild = PartialInviteGuild(state, guild_data, guild_id)
+
+            welcome_screen = guild_data.get("welcome_screen")
+            if welcome_screen is not None:
+                welcome_screen = WelcomeScreen(data=welcome_screen, guild=guild)
 
         # As far as I know, invites always need a channel
         # So this should never raise.
@@ -391,7 +405,7 @@ class Invite(Hashable):
             # Upgrade the partial data if applicable
             channel = guild.get_channel(channel.id) or channel
 
-        return cls(state=state, data=data, guild=guild, channel=channel)
+        return cls(state=state, data=data, guild=guild, channel=channel, welcome_screen=welcome_screen)
 
     @classmethod
     def from_gateway(cls: Type[I], *, state: ConnectionState, data: GatewayInvitePayload) -> I:

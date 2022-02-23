@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import inspect
 import sys
-import json
 import traceback
+from types import FunctionType
+
 from typing import (
     List,
     Optional,
@@ -15,26 +16,32 @@ from typing import (
     Type,
     Literal,
     Tuple,
-    Iterable,
     Generic,
     Coroutine,
     Callable,
 )
-from functools import partial
-
-from .utils import MISSING, maybe_coroutine, evaluate_annotation
+from .utils import MISSING, maybe_coroutine, evaluate_annotation, find
 from .enums import ApplicationCommandType, InteractionType
 from .interactions import Interaction
 from .member import Member
-from .message import Message
+from .message import Attachment, Message
 from .user import User
 from .channel import PartialSlashChannel
 from .role import Role
+from .errors import (
+    MinMaxTypeError,
+    ArgumentMismatchError,
+    AutoCompleteResponseFormattingError,
+    ApplicationCommandCheckFailure,
+    ApplicationCommandNotFound,
+)
 
 if TYPE_CHECKING:
     from .client import Client
     from .state import ConnectionState
     from .http import HTTPClient
+    from .embeds import Embed
+    from .ui.view import View
     from .types.snowflake import Snowflake
     from .types.interactions import (
         ApplicationCommand,
@@ -63,6 +70,7 @@ application_option_type__lookup = {
     PartialSlashChannel: 7,
     Role: 8,
     float: 10,
+    Attachment: 11,
 }
 
 
@@ -73,7 +81,7 @@ def _option_to_dict(option: _OptionData) -> dict:
     payload = {
         "name": option.name,
         "description": option.description or "none provided",
-        "required": True,
+        "required": option.default is MISSING,
         "autocomplete": option.autocomplete,
     }
 
@@ -98,16 +106,14 @@ def _option_to_dict(option: _OptionData) -> dict:
 
     if option.min is not MISSING or option.max is not MISSING:
         if arg not in {int, float}:
-            raise ValueError(
-                f"min or max specified for argument {option.name}, but is not an int or float."
-            )  # TODO: exceptions
+            raise MinMaxTypeError(option.name, arg)
 
         if option.min and option.max and option.min > option.max:
             raise ValueError(f"{option} has a min value that is greater than the max value")
 
-        if option.min:
+        if option.min is not MISSING:
             payload["min_value"] = option.min
-        if option.max:
+        if option.max is not MISSING:
             payload["max_value"] = option.max
 
     if origin is not Literal:
@@ -146,7 +152,16 @@ def _parse_role(
     return Role(guild=interaction.guild, state=state, data=resolved)  # type: ignore
 
 
-_parse_index = {6: _parse_user, 7: _parse_channel, 8: _parse_role}
+def _parse_attachment(
+    interaction: Interaction, state: ConnectionState, argument: ApplicationCommandInteractionDataOption
+) -> Attachment:
+    target = argument["value"]
+    resolved = interaction.data["resolved"]["attachments"][target]
+
+    return Attachment(state=state, data=resolved)  # type: ignore
+
+
+_parse_index = {6: _parse_user, 7: _parse_channel, 8: _parse_role, 11: _parse_attachment}
 
 T = TypeVar("T")
 AutoCompleteResponseT = TypeVar("AutoCompleteResponseT", bound="AutoCompleteResponse")
@@ -256,7 +271,7 @@ class CommandMeta(type):
         *,
         name: str = MISSING,
         description: str = MISSING,
-        parent: Command = MISSING,
+        parent: Type[Command] = MISSING,
         guilds: List[Snowflake] = MISSING,
     ):
         attrs["_arguments_"] = arguments = []  # type: List[_OptionData]
@@ -281,8 +296,11 @@ class CommandMeta(type):
 
         ann = attrs.get("__annotations__", {})
 
-        for k, v in ann.items():
-            attr = attrs.get(k, MISSING)
+        for k, attr in attrs.items():
+            if k.startswith("_") or type(attr) in {FunctionType, classmethod, staticmethod}:
+                continue
+
+            v = ann.get(k, "str")
             default = description = min_ = max_ = MISSING
             autocomplete = False
             if isinstance(attr, Option):
@@ -298,9 +316,9 @@ class CommandMeta(type):
             arguments.append(_OptionData(k, v, autocomplete, description, default, min_, max_))
 
         if type is ApplicationCommandType.user_command and (len(arguments) != 1 or arguments[0].name != "target"):
-            raise RuntimeError("User Commands must take exactly one argument, named 'target'")  # TODO: exceptions
+            raise ArgumentMismatchError("User Commands must take exactly one argument, named 'target'")
         elif type is ApplicationCommandType.message_command and (len(arguments) != 1 or arguments[0].name != "message"):
-            raise RuntimeError("Message Commands must take exactly one argument, named 'message'")  # TODO: exceptions
+            raise ArgumentMismatchError("Message Commands must take exactly one argument, named 'message'")
 
         t = super().__new__(mcs, classname, bases, attrs)
 
@@ -360,6 +378,7 @@ class Command(metaclass=CommandMeta):
                 "name": cls._name_,
                 "description": cls._description_ or "no description",
                 "options": [x.to_dict() for x in cls._children_.values()],
+                "type": 1,
             }
 
             if cls._parent_:
@@ -425,6 +444,95 @@ class Command(metaclass=CommandMeta):
             The exception that was thrown.
         """
         traceback.print_exception(type(exception), exception, exception.__traceback__)
+
+    async def send(
+        self,
+        content: Optional[Any] = None,
+        *,
+        embed: Embed = MISSING,
+        embeds: List[Embed] = MISSING,
+        view: View = MISSING,
+        tts: bool = False,
+        ephemeral: bool = False,
+        delete_after: float = MISSING,
+    ) -> None:
+        """|coro|
+
+        Responds to this interaction by sending a message.
+
+        Parameters
+        -----------
+        content: Optional[:class:`str`]
+            The content of the message to send.
+        embeds: List[:class:`Embed`]
+            A list of embeds to send with the content. Maximum of 10. This cannot
+            be mixed with the ``embed`` parameter.
+        embed: :class:`Embed`
+            The rich embed for the content to send. This cannot be mixed with
+            ``embeds`` parameter.
+        tts: :class:`bool`
+            Indicates if the message should be sent using text-to-speech.
+        view: :class:`discord.ui.View`
+            The view to send with the message.
+        ephemeral: :class:`bool`
+            Indicates if the message should only be visible to the user who started the interaction.
+            If a view is sent with an ephemeral message and it has no timeout set then the timeout
+            is set to 15 minutes.
+        delete_after: :class:`float`
+            If specified, the message will automatically delete after the set amount of time (in seconds)
+
+        Raises
+        -------
+        HTTPException
+            Sending the message failed.
+        TypeError
+            You specified both ``embed`` and ``embeds``.
+        ValueError
+            The length of ``embeds`` was invalid.
+        """
+        if not self.interaction.response.is_done():
+            return await self.interaction.response.send_message(
+                content=content,
+                embed=embed,
+                embeds=embeds,
+                view=view,
+                tts=tts,
+                ephemeral=ephemeral,
+                delete_after=delete_after,
+            )
+        else:
+            return await self.interaction.followup.send(
+                content=content,
+                embed=embed,
+                embeds=embeds,
+                view=view,
+                tts=tts,
+                ephemeral=ephemeral,
+                delete_after=delete_after,
+            )
+
+    async def defer(self, *, ephemeral: bool = False) -> None:
+        """|coro|
+
+        Defers the interaction response.
+
+        This is typically used when the interaction is acknowledged
+        and a secondary action will be done later.
+        If the interaction has already been responded to, this function will silently fail.
+
+        Parameters
+        -----------
+        ephemeral: :class:`bool`
+            Indicates whether the deferred message will eventually be ephemeral.
+            This only applies for interactions of type :attr:`InteractionType.application_command`.
+
+        Raises
+        -------
+        HTTPException
+            Deferring the interaction failed.
+        """
+        if not self.interaction.response.is_done():
+            await self.interaction.response.defer(ephemeral=ephemeral)
 
 
 class UserCommand(Command, Generic[CommandT]):
@@ -570,20 +678,56 @@ class CommandState:
 
                 self.pre_registration[guild_id].append((command, callback))
 
-    def _internal_add(self, cls: Type[Command]) -> None:
-        async def callback(cls: Type[Command], client: Client, interaction: Interaction, _) -> None:
+    def remove_command(self, name: str, type: ApplicationCommandType) -> None:
+        """
+        Removes the given command from both global commands and all guild commands.
 
-            cls._id_ = int(interaction.data["id"])
+        Parameters
+        ------------
+        name: :class:`str`
+            The name of the command to remove
+        type: :class:`ApplicationCommandType`
+            The type of command to remove. One of :class:`ApplicationCommandType.slash_command`, :class:`ApplicationCommandType.user_command,
+            or :class:`ApplicationCommandType.message_command`
+
+        Raises
+        -------
+        ApplicationCommandNotFound: the command wasn't found
+        """
+
+        def finder(cmd: Tuple[Union[UploadableApplicationCommand, UploadableSlashCommand], _callback]) -> bool:
+            if cmd[0]["name"] == name and cmd[0]["type"] == type.value:
+                return True
+
+            return False
+
+        did_find = False
+
+        for commands in self.pre_registration.values():
+            found = find(finder, commands)
+            if found:
+                did_find = True
+                commands.remove(found)
+
+        if not did_find:
+            raise ApplicationCommandNotFound(f"ApplicationCommand '{name}' of type {type.name} not found")
+
+    def _internal_add(self, cls: Type[Command]) -> None:
+      
+        async def callback(client: Client, interaction: Interaction, _) -> None:
+            _cls = cls
+            _cls._id_ = int(interaction.data["id"])
+
             options = interaction.data.get("options")
 
             # first check if we're dealing with a subcommand
-            if cls._type_ is ApplicationCommandType.slash_command:
+            if _cls._type_ is ApplicationCommandType.slash_command:
                 while options and options[0]["type"] in {1, 2}:
                     name = options[0]["name"]
                     options = options[0]["options"]
-                    cls = cls._children_[name]
+                    _cls = _cls._children_[name]
 
-            inst = cls()
+            inst = _cls()
             inst.client = client
             inst.interaction = interaction
 
@@ -591,20 +735,17 @@ class CommandState:
                 try:
                     await self._dispatch_autocomplete(inst, options)
                 except Exception as e:
-                    client.dispatch("application_command_error", interaction, e)  # TODO: document this one
                     await maybe_coroutine(inst.error, e)
 
             else:
                 try:
                     await self._internal_dispatch(inst, options)
                 except Exception as e:
-                    client.dispatch("application_command_error", interaction, e)  # TODO: document this one
                     await maybe_coroutine(inst.error, e)
 
-        self.add_command(cls.to_dict(), partial(callback, cls), guild_ids=cls._guilds_ or None)
+        self.add_command(cls.to_dict(), callback, guild_ids=cls._guilds_ or None)
 
     async def dispatch(self, client: Client, interaction: Interaction) -> None:
-        print(json.dumps(interaction.data, indent=4))
         command, callback = self.command_store.get(int(interaction.data["id"]), (None, None))
         if command is None:
             return
@@ -613,19 +754,18 @@ class CommandState:
 
     async def _internal_dispatch(self, inst: CommandT, options: List[ApplicationCommandInteractionDataOption]):
         if not await maybe_coroutine(inst.pre_check):
-            raise RuntimeError(f"The pre-check for {inst._name_} failed.")
+            raise ApplicationCommandCheckFailure(f"The pre-check for {inst._name_} failed.")
 
         inst._handle_arguments(inst.interaction, self.state, options or [], inst._arguments_)
 
         if not await maybe_coroutine(inst.check):
-            raise RuntimeError(f"The check for {inst._name_} failed.")
+            raise ApplicationCommandCheckFailure(f"The check for {inst._name_} failed.")
 
         await inst.callback()
 
     async def _dispatch_autocomplete(self, inst: CommandT, data: List[ApplicationCommandInteractionDataOption]):
         options: Dict[str, Optional[Union[str, int, float]]] = {x.name: None for x in inst._arguments_}
         focused = None
-        print(data)
 
         for x in data:
             val = x["value"]
@@ -643,6 +783,8 @@ class CommandState:
         try:
             resp = list(resp)
         except Exception as e:
-            raise ValueError(f"Could not format the returned autocomplete object properly.") from e  # TODO: exceptions
+            raise AutoCompleteResponseFormattingError(
+                f"Could not format the returned autocomplete object properly."
+            ) from e
 
         await inst.interaction.response.autocomplete_result(resp)

@@ -31,7 +31,7 @@ If you are using Windows, then the following should be used instead: ::
     py -3 -m pip install -U git+https://github.com/iDevision/enhanced-discord.py.git
 
 
-To get voice support, you should use ``discord.py[voice]`` instead of ``discord.py``, e.g. ::
+To get voice support, you should use ``iDevision/enhanced-discord.py.git#egg=voice`` instead of ``iDevision/enhanced-discord.py.git``, e.g. ::
 
     python3 -m pip install -U git+https://github.com/iDevision/enhanced-discord.py.git#egg=voice
 
