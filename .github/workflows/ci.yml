@@ -1,16 +1,42 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, edited]
 
 jobs:
-  black:
+  lints:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Run linter
-        uses: psf/black@stable
         with:
-          options: "--line-length 120 --check"
-          src: "./discord"
+          fetch-depth: 0
+
+      - name: Install CPython
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{matrix.python-version}}
+
+      - name: Install JS
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Install Deps
+        run: |
+          python -m ensurepip
+          pip install black
+          pip install -r requirements.txt
+          npm install -g pyright
+
+      - name: Run Black
+        run: black discord/ --line-length 120 --verbose --check
+
+      - name: Run Pyright
+        run: pyright || echo ""
