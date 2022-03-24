@@ -20,13 +20,22 @@ from typing import (
     Coroutine,
     Callable,
 )
+from .abc import GuildChannel
 from .utils import MISSING, maybe_coroutine, evaluate_annotation, find
-from .enums import ApplicationCommandType, InteractionType
+from .enums import ApplicationCommandType, ChannelType, InteractionType
 from .interactions import Interaction
 from .member import Member
 from .message import Attachment, Message
 from .user import User
-from .channel import PartialSlashChannel
+from .channel import (
+    CategoryChannel,
+    PartialSlashChannel,
+    StageChannel,
+    StoreChannel,
+    TextChannel,
+    VoiceChannel,
+)
+from .threads import Thread
 from .role import Role
 from .errors import (
     MinMaxTypeError,
@@ -71,6 +80,31 @@ application_option_type__lookup = {
     Role: 8,
     float: 10,
     Attachment: 11,
+}
+
+application_type_channel__lookup: Dict[Any, List[ChannelType]] = {
+    GuildChannel: [
+        ChannelType.stage_voice,
+        ChannelType.store,
+        ChannelType.voice,
+        ChannelType.text,
+        ChannelType.news,
+        ChannelType.category,
+    ],
+    PartialSlashChannel: [
+        ChannelType.stage_voice,
+        ChannelType.store,
+        ChannelType.voice,
+        ChannelType.text,
+        ChannelType.news,
+        ChannelType.category,
+    ],
+    Thread: [ChannelType.news_thread, ChannelType.private_thread, ChannelType.public_thread],
+    StageChannel: [ChannelType.stage_voice],
+    StoreChannel: [ChannelType.store],
+    VoiceChannel: [ChannelType.voice],
+    TextChannel: [ChannelType.text, ChannelType.news],
+    CategoryChannel: [ChannelType.category],
 }
 
 
@@ -118,6 +152,10 @@ def _option_to_dict(option: _OptionData) -> dict:
 
     if origin is not Literal:
         payload["type"] = application_option_type__lookup.get(arg, 3)
+
+    if arg in application_type_channel__lookup.keys():
+        payload["type"] = application_option_type__lookup[PartialSlashChannel]
+        payload["channel_types"] = [_type.value for _type in application_type_channel__lookup[arg]]
 
     return payload
 
@@ -713,7 +751,6 @@ class CommandState:
             raise ApplicationCommandNotFound(f"ApplicationCommand '{name}' of type {type.name} not found")
 
     def _internal_add(self, cls: Type[Command]) -> None:
-      
         async def callback(client: Client, interaction: Interaction, _) -> None:
             _cls = cls
             _cls._id_ = int(interaction.data["id"])
